@@ -156,7 +156,7 @@ public class MapGenerator : MonoBehaviour
         int mapHeight = cellTextureIndexMap.GetLength(1);
         // 贴图都是矩形
         int textureCellSize = groundTexture.width;
-        Texture2D mapTexture = new Texture2D(mapWidth * textureCellSize, mapHeight * textureCellSize);
+        Texture2D mapTexture = new Texture2D(mapWidth * textureCellSize, mapHeight * textureCellSize, TextureFormat.RGB24, false);
 
         // 遍历每一个格子
         for (int y = 0; y < mapHeight; y++)
