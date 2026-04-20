@@ -480,9 +480,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MapGenerator
   meshRenderer: {fileID: 1027221610}
   meshFilter: {fileID: 1027221609}
-  mapHeight: 5
-  mapWidth: 5
+  mapHeight: 10
+  mapWidth: 10
   cellSize: 1
+  lacunarity: 0.5
+  seed: 1
+  limit: 0.198
+  groundTexutre: {fileID: 2800000, guid: f8ef01ea674733a42bf8459b49ce3041, type: 3}
+  marshTextures:
+  - {fileID: 2800000, guid: c866d07f79959044b89c8b0c20c9fe46, type: 3}
+  - {fileID: 2800000, guid: d474daf193533bc49b7ee2f61d2c8c29, type: 3}
+  - {fileID: 2800000, guid: e29e9ea54b00b8645a5a3941befbdb48, type: 3}
+  - {fileID: 2800000, guid: 976a72c512db7a049bc575957f6e390c, type: 3}
+  - {fileID: 2800000, guid: ece6734c1244de74ea14fb4252a7fecc, type: 3}
+  - {fileID: 2800000, guid: e03afa13bcacaf545a692cdb0ee779d3, type: 3}
+  - {fileID: 2800000, guid: e18f129cfc95576419a576eaf3e175c0, type: 3}
+  - {fileID: 2800000, guid: 78b41370e2dfc2943a78dd01dac4e617, type: 3}
+  - {fileID: 2800000, guid: 347bbf1afd06f6e44832ef8e12d8b9a4, type: 3}
+  - {fileID: 2800000, guid: 45f0e76d72dcacb4ebea4dd916adafc1, type: 3}
+  - {fileID: 2800000, guid: b8ea83edd0175b94bb392efdce07010b, type: 3}
+  - {fileID: 2800000, guid: e4c090ae2a017c449822fafad6c12455, type: 3}
+  - {fileID: 2800000, guid: 53ba77b2ebed608489e177828b120127, type: 3}
+  - {fileID: 2800000, guid: d3dffb87dc10beb47967d6f222bb20c0, type: 3}
+  - {fileID: 2800000, guid: 1b5e50323f979744b971358d3334007d, type: 3}
   testObj: {fileID: 0}
 --- !u!33 &1027221609
 MeshFilter:
@@ -491,7 +511,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1027221606}
-  m_Mesh: {fileID: 1879361769}
+  m_Mesh: {fileID: 1472203476}
 --- !u!23 &1027221610
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -517,7 +537,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10306, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: 9ec265ead34a4d1498253b44f864752c, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -541,7 +561,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!43 &1879361769
+--- !u!43 &1472203476
 Mesh:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -558,8 +578,8 @@ Mesh:
     firstVertex: 0
     vertexCount: 4
     localAABB:
-      m_Center: {x: 2.5, y: 0, z: 2.5}
-      m_Extent: {x: 2.5, y: 0, z: 2.5}
+      m_Center: {x: 5, y: 0, z: 5}
+      m_Extent: {x: 5, y: 0, z: 5}
   m_Shapes:
     vertices: []
     shapes: []
@@ -638,7 +658,7 @@ Mesh:
       format: 0
       dimension: 0
     m_DataSize: 128
-    _typelessdata: 000000000000000000000000000000000000803f00000000000000000000000000000000000000000000a040000000000000803f00000000000000000000803f0000a040000000000000a040000000000000803f000000000000803f0000803f0000a0400000000000000000000000000000803f000000000000803f00000000
+    _typelessdata: 000000000000000000000000000000000000803f000000000000000000000000000000000000000000002041000000000000803f00000000000000000000803f000020410000000000002041000000000000803f000000000000803f0000803f000020410000000000000000000000000000803f000000000000803f00000000
   m_CompressedMesh:
     m_Vertices:
       m_NumItems: 0
@@ -692,8 +712,8 @@ Mesh:
       m_BitSize: 0
     m_UVInfo: 0
   m_LocalAABB:
-    m_Center: {x: 2.5, y: 0, z: 2.5}
-    m_Extent: {x: 2.5, y: 0, z: 2.5}
+    m_Center: {x: 5, y: 0, z: 5}
+    m_Extent: {x: 5, y: 0, z: 5}
   m_MeshUsageFlags: 0
   m_CookingOptions: 30
   m_BakedConvexCollisionMesh: 
