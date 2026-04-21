@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using static MapGrid;
 
 public class MapGenerator : MonoBehaviour
 {
@@ -11,12 +12,16 @@ public class MapGenerator : MonoBehaviour
     public float cellSize; // Cell size
     MapGrid grid; // This is a reference to the MapGrid class, which is responsible for managing the grid structure of the map.
     public float lacunarity;// 声明噪声频率参数（控制地形起伏的密集程度）
-    public int seed;// 声明随机种子（用来复刻特定地形）
+    public int mapseed;// 声明随机种子（用来复刻特定地形）
+    public int spawnSeed;// 声明随机种子（用来复刻特定的物品分布）
     [Range(0f, 1f)]
     public float limit;// 声明界限值（比如大于 0.5 是沼泽，小于 0.5 是森林）
 
     public Texture2D groundTexutre;
     public Texture2D[] marshTextures;
+    public MapObjectSpawnConfig objectSpawnConfig;// 场景物品生成配置文件
+    //需要一个列表来记录我们生成的场景物品，方便日后管理或清除
+    private List<GameObject> mapObjects = new List<GameObject>();
 
     /// <summary>
     /// Generate map
@@ -34,7 +39,7 @@ public class MapGenerator : MonoBehaviour
         grid = new MapGrid(mapHeight, mapWidth, cellSize);
         // 生成噪声图 高度/地貌分布图
         //把参数传给噪声生成器，得到一张填满 0~1 之间小数的二维表格（类似于地形高低起伏图）
-        float[,] noiseMap = GenerateNoiseMap(mapWidth, mapHeight, lacunarity, seed);
+        float[,] noiseMap = GenerateNoiseMap(mapWidth, mapHeight, lacunarity, mapseed);
         //确认顶点的类型、以及计算顶点周围网格的贴图的索引数字得到
         //把生成的噪声图和 limit 界限值交给 grid，算出每个格子到底该用哪个过渡贴图
         //比如：左边是沼泽右边是森林，它就会算出特定的序号
@@ -44,6 +49,10 @@ public class MapGenerator : MonoBehaviour
         // 基于网格的贴图索引数字 生成地图贴图
         Texture2D mapTexture = GenerateMapTexture(cellTextureIndexMap, groundTexutre, marshTextures);
         meshRenderer.sharedMaterial.mainTexture = mapTexture;
+
+        //生成场景物体
+        SpawnMapObject(grid, objectSpawnConfig, spawnSeed);
+
 
         // Mesh mesh = new Mesh();
         // mesh.vertices = new Vector3[]
@@ -89,10 +98,10 @@ public class MapGenerator : MonoBehaviour
         // 确定四个角的坐标点。目前写死了一个由 4 个点组成的矩形。
         mesh.vertices = new Vector3[]
         {
-            new Vector3(0,0,0),
-            new Vector3(0,0,height),
-            new Vector3(width,0,height), // 修正拼写: wdith -> width
-            new Vector3(width,0,0),     // 修正拼写: wdith -> width
+            new Vector3(0, 0, 0),
+            new Vector3(0, 0, height * cellSize),
+            new Vector3(width * cellSize, 0, height * cellSize),
+            new Vector3(width * cellSize, 0, 0),
         };
         // Determine which points form a triangle
         // This array defines which vertices form a triangle. Each set of three integers represents the indices of the three vertices of a triangle.
@@ -205,6 +214,71 @@ public class MapGenerator : MonoBehaviour
         mapTexture.wrapMode = TextureWrapMode.Clamp;
         mapTexture.Apply();
         return mapTexture;
+    }
+
+    /// <summary>
+    /// 生成各种地图对象
+    /// </summary>
+    private void SpawnMapObject(MapGrid mapGrid, MapObjectSpawnConfig spawnConfig, int spawnSeed)
+    {
+        #region Test logic
+        for (int i = 0; i < mapObjects.Count; i++)
+        {
+            DestroyImmediate(mapObjects[i].gameObject);
+        }
+        mapObjects.Clear();
+        #endregion
+
+        // 使用种子来进行随机生成
+        Random.InitState(spawnSeed);
+        int mapHeight = mapGrid.MapHeight;
+        int mapWidth = mapGrid.MapWidth;
+
+        // 便利地图顶点
+        for (int x = 1; x < mapWidth; x++)
+        {
+            for (int y = 1; y < mapHeight; y++)
+            {
+                MapVertex mapVertex = mapGrid.GetVertex(x, y);
+                // 根据概率配置随机
+                //List<MapObjectSpawnConfigModel> configModels = spawnConfig.spawnRules[mapVertex.VertexType];
+                // 1. 先从原生配置表的 List 中，找出当前顶点地形（比如森林）对应的规则
+                TerrainSpawnRule currentRule = spawnConfig.spawnRules.Find(rule => rule.terrainType == mapVertex.VertexType);
+
+                // 2. 安全检查：如果策划没有在配置表里配这个地形，就跳过当前顶点，防止程序报错崩溃
+                if (currentRule == null) continue;
+
+                // 3. 拿到该地形下的物品生成池（也就是原来 configModels 要的数据）
+                List<MapObjectSpawnConfigModel> configModels = currentRule.spawnModels;
+
+
+                // 我们确保整个配置概率值合为100
+                int randValue = Random.Range(1, 101); // 实际命中数字是从1~100 
+                float temp = 0;
+                int spawnConfigIndex = 0;   // 最终要生成的物品
+
+                // 30 20 50
+                for (int i = 0; i < configModels.Count; i++)
+                {
+                    temp += configModels[i].probability;
+                    if (randValue < temp)
+                    {
+                        // 命中
+                        spawnConfigIndex = i;
+                        break;
+                    }
+                }
+                // 确定到底生成什么物品
+                MapObjectSpawnConfigModel spawnModel = configModels[spawnConfigIndex];
+                if (spawnModel.isEmpty == false)
+                {
+                    // 实例化物品
+                    Vector3 offset = new Vector3(Random.Range(-cellSize / 2, cellSize / 2), 0, Random.Range(-cellSize / 2, cellSize / 2));
+                    GameObject go = GameObject.Instantiate(spawnModel.prefab, mapVertex.Position + offset, Quaternion.identity, transform);
+                    mapObjects.Add(go);
+                }
+            }
+        }
     }
 
 }
