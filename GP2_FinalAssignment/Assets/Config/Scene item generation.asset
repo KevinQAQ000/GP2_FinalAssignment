@@ -70,10 +70,10 @@ MonoBehaviour:
       probability: 40
     - isEmpty: 0
       prefab: {fileID: 5392044469008384642, guid: e0adf790ee1c66d4ba7e88a04dec810d, type: 3}
-      probability: 20
+      probability: 30
     - isEmpty: 0
       prefab: {fileID: 8013185886648752113, guid: c64713bb77a5dbe4e8ceec5d87e915fd, type: 3}
-      probability: 20
+      probability: 25
     - isEmpty: 0
       prefab: {fileID: 1193482285669492005, guid: f6b8ce3d3ca9a24498d6184fc433e9ab, type: 3}
-      probability: 20
+      probability: 5

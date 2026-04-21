@@ -227,7 +227,7 @@ public class MapGrid
     /// <summary>
     /// 计算格子贴图的索引数字
     /// </summary>
-    public int[,] CalculateCellTextureIndex(float[,] noiseMap, float limit)
+    public void CalculateMapVertexType(float[,] noiseMap, float limit)
     {
         int width = noiseMap.GetLength(0);
         int height = noiseMap.GetLength(1);
@@ -250,16 +250,16 @@ public class MapGrid
         }
 
         // 到这里，可以确定所有格子对应的贴图索引
-        int[,] textureIndexMap = new int[width, height];
-        for (int x = 0; x < width; x++)
-        {
-            for (int z = 0; z < height; z++)
-            {
-                textureIndexMap[x, z] = GetCell(x + 1, z + 1).TextureIndex;
-            }
-        }
+        //int[,] textureIndexMap = new int[width, height];
+        //for (int x = 0; x < width; x++)
+        //{
+        //    for (int z = 0; z < height; z++)
+        //    {
+        //        textureIndexMap[x, z] = GetCell(x + 1, z + 1).TextureIndex;
+        //    }
+        //}
 
-        return textureIndexMap;
+        //return textureIndexMap;
     }
      
     //**************************************************************************************

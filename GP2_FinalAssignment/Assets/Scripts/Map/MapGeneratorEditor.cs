@@ -14,7 +14,7 @@ public class MapGeneratorEditor : Editor
         // Draw button
         if (GUILayout.Button("Generate Map"))
         {
-            script.GenerateMap();// Call the GenerateMap method when the button is clicked
+            script.GenerateMapData();// Call the GenerateMap method when the button is clicked
         }
 
         //if (GUILayout.Button("TestVertex"))

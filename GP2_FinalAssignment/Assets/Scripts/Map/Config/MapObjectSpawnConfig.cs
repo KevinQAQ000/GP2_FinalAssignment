@@ -6,7 +6,7 @@ using UnityEngine;
 /// 场景物品生成配置文件 (ScriptableObject)
 /// </summary>
 [CreateAssetMenu(fileName = "Scene item generation", menuName = "Config/Scene Item Configuration Table")]
-public class MapObjectSpawnConfig : ScriptableObject
+public class MapConfig : ScriptableObject
 {
     [Header("List of generation rules for different terrains")]
     public List<TerrainSpawnRule> spawnRules = new List<TerrainSpawnRule>();

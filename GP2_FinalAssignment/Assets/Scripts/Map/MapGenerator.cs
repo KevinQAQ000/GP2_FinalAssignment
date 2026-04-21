@@ -3,56 +3,59 @@ using System.Collections.Generic;
 using UnityEngine;
 using static MapGrid;
 
-public class MapGenerator : MonoBehaviour
+/// <summary>
+/// 地图生成工具
+/// </summary>
+public class MapGenerator: MonoBehaviour
 {
-    public MeshRenderer meshRenderer; // Map renderer
-    public MeshFilter meshFilter; // This is the MeshFilter component for the map, used to generate the map's mesh.
-    public int mapHeight; // Map height
-    public int mapWidth; // Map width
-    public float cellSize; // Cell size
-    MapGrid grid; // This is a reference to the MapGrid class, which is responsible for managing the grid structure of the map.
-    public float lacunarity;// 声明噪声频率参数（控制地形起伏的密集程度）
-    public int mapseed;// 声明随机种子（用来复刻特定地形）
-    public int spawnSeed;// 声明随机种子（用来复刻特定的物品分布）
-    [Range(0f, 1f)]
-    public float limit;// 声明界限值（比如大于 0.5 是沼泽，小于 0.5 是森林）
+    //有几个地图块
+    //一个地图有多少个格子
+    //一个格子有多大
+    //一个格子的贴图有多少像素
+    //整个世界是方的
+    private int mapSize;        // 一行或者一列有多少个地图块
+    private int mapChunkSize;   // 一个地图块有多少个格子
+    private float cellSize; // 一个格子多少米
 
-    public Texture2D groundTexutre;
-    public Texture2D[] marshTextures;
-    public MapObjectSpawnConfig objectSpawnConfig;// 场景物品生成配置文件
+    private float noiseLacunarity;// 声明噪声频率参数（控制地形起伏的密集程度）
+    private int mapSeed;// 地图种子
+    private int spawnSeed;// 地图物品种子
+    private int mapHeight; // Map height
+    private int mapWidth; // Map width
+    private float marshLimit;// 沼泽界限值（比如大于 0.5 是沼泽，小于 0.5 是森林）
+    private MapGrid mapGrid; // 地图逻辑网格和顶点数据结构
+    private Material mapMaterial;
+
+    private Texture2D forestTexutre;
+    private Texture2D[] marshTextures;
+    private MapConfig mapConfig;// 场景物品生成配置文件
     //需要一个列表来记录我们生成的场景物品，方便日后管理或清除
     private List<GameObject> mapObjects = new List<GameObject>();
 
+
+
     /// <summary>
-    /// Generate map
+    /// 生成地图数据，主要是所有地图块都通用的数据
     /// </summary>
     [ContextMenu("Generate Map")] // This attribute allows you to call the GenerateMap method from the Unity Editor's context menu.
-    public void GenerateMap()
+    public void GenerateMapData()
     {
-        // Generate a map mesh
-        //调用下面的GenerateMapMesh私有方法创建一个 Mesh 对象，并交给 meshFilter 显示出来
-        meshFilter.mesh = GenerateMapMesh(mapHeight, mapWidth);
-
-        // 生成网格
-        // 面板填好的长、宽、大小传进去，新建一个 MapGrid 实例。
-        // 这时会执行 MapGrid 的构造函数，生成那些小球（顶点）和方块（格子）
-        grid = new MapGrid(mapHeight, mapWidth, cellSize);
         // 生成噪声图 高度/地貌分布图
         //把参数传给噪声生成器，得到一张填满 0~1 之间小数的二维表格（类似于地形高低起伏图）
-        float[,] noiseMap = GenerateNoiseMap(mapWidth, mapHeight, lacunarity, mapseed);
+        //float[,] noiseMap = GenerateNoiseMap(mapWidth, mapHeight, noiseLacunarity, mapseed);
+        float[,] noiseMap = GenerateNoiseMap(mapSize * mapChunkSize, mapSize * mapChunkSize, noiseLacunarity, mapSeed);
+
+        // 生成网格数据
+        // 面板填好的长、宽、大小传进去，新建一个 MapGrid 实例。
+        // 这时会执行 MapGrid 的构造函数，生成那些小球（顶点）和方块（格子）
+        //mapGrid = new MapGrid(mapHeight, mapWidth, cellSize);
+        mapGrid = new MapGrid(mapSize * mapChunkSize, mapSize * mapChunkSize, cellSize);
+
         //确认顶点的类型、以及计算顶点周围网格的贴图的索引数字得到
         //把生成的噪声图和 limit 界限值交给 grid，算出每个格子到底该用哪个过渡贴图
         //比如：左边是沼泽右边是森林，它就会算出特定的序号
-        int[,] cellTextureIndexMap = grid.CalculateCellTextureIndex(noiseMap, limit);
-
-
-        // 基于网格的贴图索引数字 生成地图贴图
-        Texture2D mapTexture = GenerateMapTexture(cellTextureIndexMap, groundTexutre, marshTextures);
-        meshRenderer.sharedMaterial.mainTexture = mapTexture;
-
-        //生成场景物体
-        SpawnMapObject(grid, objectSpawnConfig, spawnSeed);
-
+        //int[,] cellTextureIndexMap = mapGrid.CalculateCellTextureIndex(noiseMap, marshLimit);
+        mapGrid.CalculateMapVertexType(noiseMap, marshLimit);
 
         // Mesh mesh = new Mesh();
         // mesh.vertices = new Vector3[]
@@ -71,26 +74,75 @@ public class MapGenerator : MonoBehaviour
         // meshFilter.mesh = mesh; // Assign the generated mesh to the MeshFilter component.
     }
 
-    public GameObject testObj;
-    [ContextMenu("TestVertex")]
-    public void TestVertex()
+    /// <summary>
+    /// 生成地图块
+    /// </summary>
+    public MapChunkController GenerateMapChunk(Vector2Int chunkIndex, Transform parent)
     {
-        // This method is used to test the functionality of obtaining vertex data via world coordinates.
-        // It displays a button in the Unity Editor; when clicked, it calls the GetVertexByWorldPosition method,
-        // passing in the world coordinates of the testObj, and prints the corresponding vertex position.
-        print(grid.GetVertexByWorldPosition(testObj.transform.position).Position);
+        // 生成地图块物品
+        GameObject mapChunkObj = new GameObject("Chunk_" + chunkIndex.ToString());
+        //mapChunkObj.transform.SetParent(parent);
+        MapChunkController mapChunk = mapChunkObj.AddComponent<MapChunkController>();
+        mapChunkObj.AddComponent<MeshFilter>().mesh = GenerateMapMesh(mapChunkSize, mapChunkSize, cellSize);
+        //mapChunkObj.AddComponent<MapChunkController>();
+        // Generate a map mesh
+        //调用下面的GenerateMapMesh私有方法创建一个 Mesh 对象，并交给 meshFilter 显示出来
+        //mapChunkObj.AddComponent<MeshFilter>().mesh = GenerateMapMesh(mapHeight, mapWidth);
+
+        //生成地图块贴图
+        //TO DO 优化
+        // 生成地图块的贴图
+        Texture2D mapTexture;
+        MonoManager.Instance.StartCoroutine
+        (
+            GenerateMapTexture(chunkIndex, (tex, isAllForest) => {
+                // 如果完全是森林，没必要在实例化一个材质球
+                if (isAllForest)
+                {
+                    mapChunkObj.AddComponent<MeshRenderer>().sharedMaterial = mapMaterial;
+                }
+                else
+                {
+                    mapTexture = tex;
+                    Material material = new Material(mapMaterial);
+
+                }
+            }));
+        //meshRenderer.sharedMaterial.mainTexture = mapTexture;
+
+        //确定坐标
+        Vector3 position = new Vector3(chunkIndex.x * mapChunkSize * cellSize, 0, chunkIndex.y * mapChunkSize * cellSize); // 注意这里应该是 y
+        mapChunk.transform.position = position;
+        mapChunkObj.transform.SetParent(parent);
+
+        // 初始化 Chunk
+        mapChunk.Init(position + new Vector3((mapChunkSize * cellSize) / 2, 0, (mapChunkSize * cellSize) / 2));
+
+        //生成场景物体
+        //SpawnMapObject(mapGrid, mapConfig, spawnSeed);
+        return mapChunk;
     }
-    [ContextMenu("TestCell")]
-    public void TestCell(Vector2Int index)
-    {
-        print(grid.GetRightTopMapCell(index).Position);
-    }
+
+    //public GameObject testObj;
+    //[ContextMenu("TestVertex")]
+    //public void TestVertex()
+    //{
+    //    // This method is used to test the functionality of obtaining vertex data via world coordinates.
+    //    // It displays a button in the Unity Editor; when clicked, it calls the GetVertexByWorldPosition method,
+    //    // passing in the world coordinates of the testObj, and prints the corresponding vertex position.
+    //    print(mapGrid.GetVertexByWorldPosition(testObj.transform.position).Position);
+    //}
+    //[ContextMenu("TestCell")]
+    //public void TestCell(Vector2Int index)
+    //{
+    //    print(mapGrid.GetRightTopMapCell(index).Position);
+    //}
 
     //**************************************************************************************
     /// <summary>
     /// Generate terrain mesh
     /// </summary>
-    private Mesh GenerateMapMesh(int height, int width) // 修正拼写: wdith -> width
+    private Mesh GenerateMapMesh(int height, int width, float cellSize)
     {
         Mesh mesh = new Mesh();
         // Determine where the vertex is
@@ -156,78 +208,113 @@ public class MapGenerator : MonoBehaviour
     }
 
     /// <summary>
-    /// 生成地图贴图
+    /// 分帧 生成地图贴图
+    /// 如果这个地图块完全是森林，直接返回森林贴图
     /// </summary>
-    private Texture2D GenerateMapTexture(int[,] cellTextureIndexMap, Texture2D groundTexture, Texture2D[] marshTextures)
+    private IEnumerator GenerateMapTexture(Vector2Int chunkIndex, System.Action<Texture2D, bool> callBack)
     {
-        // 地图宽高
-        int mapWidth = cellTextureIndexMap.GetLength(0);
-        int mapHeight = cellTextureIndexMap.GetLength(1);
-        // 贴图都是矩形
-        int textureCellSize = groundTexture.width;
-        Texture2D mapTexture = new Texture2D(mapWidth * textureCellSize, mapHeight * textureCellSize, TextureFormat.RGB24, false);
+        // 当前地块的偏移量 找到这个地图块具体的每一个格子
+        int cellOffsetX = chunkIndex.x * mapChunkSize + 1;
+        int cellOffsetY = chunkIndex.y * mapChunkSize + 1;
 
-        // 遍历每一个格子
-        for (int y = 0; y < mapHeight; y++)
+        // 是不是一张完整的森林地图块
+        bool isAllForest = true;
+        // 检查是否只有森林类型的格子
+        for (int y = 0; y < mapChunkSize; y++)
         {
-            int offsetY = y * textureCellSize;
-            for (int x = 0; x < mapWidth; x++)
+            if (isAllForest == false) break;
+            for (int x = 0; x < mapChunkSize; x++)
             {
-                int offsetX = x * textureCellSize;
-                int textureIndex = cellTextureIndexMap[x, y] - 1;
-                // 绘制每一个格子内的像素
-                // 访问每一个像素点
-                for (int y1 = 0; y1 < textureCellSize; y1++)
+                MapCell cell = mapGrid.GetCell(x + cellOffsetX, y + cellOffsetY);
+                if (cell != null && cell.TextureIndex != 0)
                 {
-                    for (int x1 = 0; x1 < textureCellSize; x1++)
-                    {
-                        // 设置某个像素点的颜色
-                        // 确定是森林还是沼泽
-                        // 这个地方是森林 ||
-                        // 这个地方是沼泽但是是透明的，这种情况需要绘制groundTexture同位置的像素颜色
-                        if (textureIndex < 0)
-                        {
-                            Color color = groundTexture.GetPixel(x1, y1);
-                            mapTexture.SetPixel(x1 + offsetX, y1 + offsetY, color);
-                        }
-                        else
-                        {
-                            // 是沼泽贴图的颜色
-                            Color color = marshTextures[textureIndex].GetPixel(x1, y1);
-                            if (color.a == 0)
-                            {
-                                mapTexture.SetPixel(x1 + offsetX, y1 + offsetY, groundTexture.GetPixel(x1, y1));
-                            }
-                            else
-                            {
-                                mapTexture.SetPixel(x1 + offsetX, y1 + offsetY, color);
-                            }
-                        }
-
-                    }
+                    isAllForest = false;
+                    break;
                 }
             }
         }
 
+        //// 地图宽高
+        //int mapWidth = cellTextureIndexMap.GetLength(0);
+        //int mapHeight = cellTextureIndexMap.GetLength(1);
 
-        mapTexture.filterMode = FilterMode.Point;
-        mapTexture.wrapMode = TextureWrapMode.Clamp;
-        mapTexture.Apply();
-        return mapTexture;
+
+        Texture2D mapTexture = null;
+        //Texture2D mapTexture = new Texture2D(mapWidth * textureCellSize, mapHeight * textureCellSize, TextureFormat.RGB24, false);
+        // 如果这个地图块完全是森林，直接返回森林贴图
+        if (!isAllForest)
+        {
+            // 贴图都是矩形
+            int textureCellSize = forestTexutre.width;
+            // 整个地图块的宽高,正方形
+            int textureSize = mapChunkSize * textureCellSize;
+            mapTexture = new Texture2D(textureSize, textureSize, TextureFormat.RGB24, false);
+
+            // 遍历每一个格子
+            for (int y = 0; y < mapChunkSize; y++)
+            {
+                // 一帧只执行一列 只绘制一列的像素
+                yield return null;
+                // 像素偏移量
+                int pixelOffsetY = y * textureCellSize;
+                for (int x = 0; x < mapChunkSize; x++)
+                {
+
+                    int pixelOffsetX = x * textureCellSize;
+                    int textureIndex = mapGrid.GetCell(x + cellOffsetX, y + cellOffsetY).TextureIndex - 1;
+                    // 绘制每一个格子内的像素
+                    // 访问每一个像素点
+                    for (int y1 = 0; y1 < textureCellSize; y1++)
+                    {
+                        for (int x1 = 0; x1 < textureCellSize; x1++)
+                        {
+
+                            // 设置某个像素点的颜色
+                            // 确定是森林还是沼泽
+                            // 这个地方是森林 ||
+                            // 这个地方是沼泽但是是透明的，这种情况需要绘制groundTexture同位置的像素颜色
+                            if (textureIndex < 0)
+                            {
+                                Color color = forestTexutre.GetPixel(x1, y1);
+                                mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, color);
+                            }
+                            else
+                            {
+                                // 是沼泽贴图的颜色
+                                Color color = marshTextures[textureIndex].GetPixel(x1, y1);
+                                if (color.a == 0)
+                                {
+                                    mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, forestTexutre.GetPixel(x1, y1));
+                                }
+                                else
+                                {
+                                    mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, color);
+                                }
+                            }
+
+                        }
+                    }
+                }
+            }
+            mapTexture.filterMode = FilterMode.Point;
+            mapTexture.wrapMode = TextureWrapMode.Clamp;
+            mapTexture.Apply();
+        }
+        callBack?.Invoke(mapTexture, isAllForest);
     }
 
     /// <summary>
     /// 生成各种地图对象
     /// </summary>
-    private void SpawnMapObject(MapGrid mapGrid, MapObjectSpawnConfig spawnConfig, int spawnSeed)
+    private void SpawnMapObject(MapGrid mapGrid, MapConfig spawnConfig, int spawnSeed)
     {
-        #region Test logic
-        for (int i = 0; i < mapObjects.Count; i++)
-        {
-            DestroyImmediate(mapObjects[i].gameObject);
-        }
-        mapObjects.Clear();
-        #endregion
+        //#region Test logic
+        //for (int i = 0; i < mapObjects.Count; i++)
+        //{
+        //    DestroyImmediate(mapObjects[i].gameObject);
+        //}
+        //mapObjects.Clear();
+        //#endregion
 
         // 使用种子来进行随机生成
         Random.InitState(spawnSeed);
@@ -270,15 +357,47 @@ public class MapGenerator : MonoBehaviour
                 }
                 // 确定到底生成什么物品
                 MapObjectSpawnConfigModel spawnModel = configModels[spawnConfigIndex];
-                if (spawnModel.isEmpty == false)
+                if (spawnModel.isEmpty == false && spawnModel.prefab != null)
                 {
                     // 实例化物品
                     Vector3 offset = new Vector3(Random.Range(-cellSize / 2, cellSize / 2), 0, Random.Range(-cellSize / 2, cellSize / 2));
-                    GameObject go = GameObject.Instantiate(spawnModel.prefab, mapVertex.Position + offset, Quaternion.identity, transform);
+
+                    // 【注意这里】：去掉了末尾的 , transform
+                    GameObject go = GameObject.Instantiate(spawnModel.prefab, mapVertex.Position + offset, Quaternion.identity);
                     mapObjects.Add(go);
                 }
             }
         }
     }
 
+}
+
+//******************************************************************************
+public class MonoManager : MonoBehaviour
+{
+    private static MonoManager instance;
+    public static MonoManager Instance
+    {
+        get
+        {
+            if (instance == null)
+            {
+                GameObject go = new GameObject("MonoManager");
+                instance = go.AddComponent<MonoManager>();
+                DontDestroyOnLoad(go); // 切换场景时不销毁
+            }
+            return instance;
+        }
+    }
+}
+
+public static class MonoExtension
+{
+    // 扩展方法必须是 static
+    // 第一个参数必须带有 this 关键字
+    public static Coroutine StartCoroutine(this object obj, IEnumerator routine)
+    {
+        // 借用我们之前写的原生 MonoManager 来开启协程
+        return MonoManager.Instance.StartCoroutine(routine);
+    }
 }
