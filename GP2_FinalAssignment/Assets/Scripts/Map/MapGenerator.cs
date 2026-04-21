@@ -25,6 +25,7 @@ public class MapGenerator: MonoBehaviour
     private float marshLimit;// 沼泽界限值（比如大于 0.5 是沼泽，小于 0.5 是森林）
     private MapGrid mapGrid; // 地图逻辑网格和顶点数据结构
     private Material mapMaterial;
+    private Material marshMaterial;
 
     private Texture2D forestTexutre;
     private Texture2D[] marshTextures;
@@ -32,7 +33,20 @@ public class MapGenerator: MonoBehaviour
     //需要一个列表来记录我们生成的场景物品，方便日后管理或清除
     private List<GameObject> mapObjects = new List<GameObject>();
 
-
+    public MapGenerator(int mapSize, int mapChunkSize, float cellSize, float noiseLacunarity, int mapSeed, int spawnSeed, float marshLimit, Material mapMaterial, Texture2D forestTexutre, Texture2D[] marshTextures, MapConfig mapConfig)
+    {
+        this.mapSize = mapSize;
+        this.mapChunkSize = mapChunkSize;
+        this.cellSize = cellSize;
+        this.noiseLacunarity = noiseLacunarity;
+        this.mapSeed = mapSeed;
+        this.spawnSeed = spawnSeed;
+        this.marshLimit = marshLimit;
+        this.mapMaterial = mapMaterial;
+        this.forestTexutre = forestTexutre;
+        this.marshTextures = marshTextures;
+        this.mapConfig = mapConfig;
+    }
 
     /// <summary>
     /// 生成地图数据，主要是所有地图块都通用的数据
@@ -56,7 +70,12 @@ public class MapGenerator: MonoBehaviour
         //比如：左边是沼泽右边是森林，它就会算出特定的序号
         //int[,] cellTextureIndexMap = mapGrid.CalculateCellTextureIndex(noiseMap, marshLimit);
         mapGrid.CalculateMapVertexType(noiseMap, marshLimit);
-
+        // 初始化默认材质的尺寸
+        mapMaterial.mainTexture = forestTexutre;
+        mapMaterial.SetTextureScale("_MainTex", new Vector2(cellSize * mapChunkSize, cellSize * mapChunkSize));
+        // 实例化一个沼泽材质
+        marshMaterial = new Material(mapMaterial);
+        marshMaterial.SetTextureScale("_MainTex", Vector2.one);
         // Mesh mesh = new Mesh();
         // mesh.vertices = new Vector3[]
         // { 
@@ -104,7 +123,9 @@ public class MapGenerator: MonoBehaviour
                 else
                 {
                     mapTexture = tex;
-                    Material material = new Material(mapMaterial);
+                    Material material = new Material(marshMaterial);
+                    material.mainTexture = tex;
+                    mapChunkObj.AddComponent<MeshRenderer>().material = material;
 
                 }
             }));
@@ -116,7 +137,7 @@ public class MapGenerator: MonoBehaviour
         mapChunkObj.transform.SetParent(parent);
 
         // 初始化 Chunk
-        mapChunk.Init(position + new Vector3((mapChunkSize * cellSize) / 2, 0, (mapChunkSize * cellSize) / 2));
+        mapChunk.Init(chunkIndex, position + new Vector3((mapChunkSize * cellSize) / 2, 0, (mapChunkSize * cellSize) / 2));
 
         //生成场景物体
         //SpawnMapObject(mapGrid, mapConfig, spawnSeed);
@@ -328,7 +349,7 @@ public class MapGenerator: MonoBehaviour
             {
                 MapVertex mapVertex = mapGrid.GetVertex(x, y);
                 // 根据概率配置随机
-                //List<MapObjectSpawnConfigModel> configModels = spawnConfig.spawnRules[mapVertex.VertexType];
+                //List<MapObjectSpawnConfigModel> configModels = spawnConfig.SpawnConfigDic[mapVertex.VertexType];
                 // 1. 先从原生配置表的 List 中，找出当前顶点地形（比如森林）对应的规则
                 TerrainSpawnRule currentRule = spawnConfig.spawnRules.Find(rule => rule.terrainType == mapVertex.VertexType);
 
@@ -363,8 +384,8 @@ public class MapGenerator: MonoBehaviour
                     Vector3 offset = new Vector3(Random.Range(-cellSize / 2, cellSize / 2), 0, Random.Range(-cellSize / 2, cellSize / 2));
 
                     // 【注意这里】：去掉了末尾的 , transform
-                    GameObject go = GameObject.Instantiate(spawnModel.prefab, mapVertex.Position + offset, Quaternion.identity);
-                    mapObjects.Add(go);
+                    //GameObject go = GameObject.Instantiate(spawnModel.prefab, mapVertex.Position + offset, Quaternion.identity);
+                    //mapObjects.Add(go);
                 }
             }
         }
