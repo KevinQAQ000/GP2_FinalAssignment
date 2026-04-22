@@ -36,7 +36,7 @@ public class MapManager : MonoBehaviour
     void Start()
     {
         // 初始化地图生成器
-        mapGenerator = new MapGenerator(mapSize, mapChunkSize, cellSize,noiseLacunarity,mapSeed,spawnSeed,marshLimit,mapMaterial,forestTexutre,marshTextures,mapConfig) ;
+        mapGenerator = new MapGenerator(mapSize, mapChunkSize, cellSize, noiseLacunarity, mapSeed, spawnSeed, marshLimit, mapMaterial, forestTexutre, marshTextures, mapConfig);
         mapGenerator.GenerateMapData();
         mapChunkDic = new Dictionary<Vector2Int, MapChunkController>();
         chunkSizeOnWord = mapChunkSize * cellSize;
@@ -60,11 +60,11 @@ public class MapManager : MonoBehaviour
         Vector2Int currChunkIndex = GetMapChunkIndexByWorldPosition(viewer.position);
 
         // 关闭全部不需要显示的地图块
-        for (int i = lastVisibleChunkList.Count-1; i >= 0; i--)
+        for (int i = lastVisibleChunkList.Count - 1; i >= 0; i--)
         {
             Vector2Int chunkIndex = lastVisibleChunkList[i].ChunkIndex;
-            if (Mathf.Abs(chunkIndex.x - currChunkIndex.x)>viewDinstance
-                || Mathf.Abs(chunkIndex.y - currChunkIndex.y)>viewDinstance)
+            if (Mathf.Abs(chunkIndex.x - currChunkIndex.x) > viewDinstance
+                || Mathf.Abs(chunkIndex.y - currChunkIndex.y) > viewDinstance)
             {
                 lastVisibleChunkList[i].SetActive(false);
                 lastVisibleChunkList.RemoveAt(i);
@@ -74,7 +74,7 @@ public class MapManager : MonoBehaviour
         int startX = currChunkIndex.x - viewDinstance;
         int startY = currChunkIndex.y - viewDinstance;
         // 开启需要显示的地图块
-        for (int x = 0; x < 2*viewDinstance+1; x++)
+        for (int x = 0; x < 2 * viewDinstance + 1; x++)
         {
             for (int y = 0; y < 2 * viewDinstance + 1; y++)
             {
@@ -82,7 +82,7 @@ public class MapManager : MonoBehaviour
                 Invoke("RestCanUpdateChunkFlag", updateChunkTime);
                 Vector2Int chunkIndex = new Vector2Int(startX + x, startY + y);
                 // 之前加载过
-                if (mapChunkDic.TryGetValue(chunkIndex,out MapChunkController chunk))
+                if (mapChunkDic.TryGetValue(chunkIndex, out MapChunkController chunk))
                 {
                     // 这个地图是不是已经在显示列表
                     if (lastVisibleChunkList.Contains(chunk) == false)
@@ -95,7 +95,7 @@ public class MapManager : MonoBehaviour
                 else
                 {
                     chunk = GenerateMapChunk(chunkIndex);
-                    if (chunk!=null)
+                    if (chunk != null)
                     {
                         chunk.SetActive(true);
                         lastVisibleChunkList.Add(chunk);
@@ -112,7 +112,7 @@ public class MapManager : MonoBehaviour
     {
         int x = Mathf.Clamp(Mathf.RoundToInt(worldPostion.x / chunkSizeOnWord), 1, mapSize);
         int y = Mathf.Clamp(Mathf.RoundToInt(worldPostion.z / chunkSizeOnWord), 1, mapSize);
-        return new Vector2Int(x,y);
+        return new Vector2Int(x, y);
     }
 
     /// <summary>
@@ -121,7 +121,7 @@ public class MapManager : MonoBehaviour
     private MapChunkController GenerateMapChunk(Vector2Int index)
     {
         // 检查坐标的合法性
-        if (index.x > mapSize || index.y > mapSize) return null;
+        if (index.x > mapSize - 1 || index.y > mapSize - 1) return null;
         if (index.x < 0 || index.y < 0) return null;
         MapChunkController chunk = mapGenerator.GenerateMapChunk(index, transform);
         mapChunkDic.Add(index, chunk);

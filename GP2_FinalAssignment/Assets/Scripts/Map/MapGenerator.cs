@@ -26,6 +26,7 @@ public class MapGenerator: MonoBehaviour
     private MapGrid mapGrid; // 地图逻辑网格和顶点数据结构
     private Material mapMaterial;
     private Material marshMaterial;
+    private Mesh chunkMesh;
 
     private Texture2D forestTexutre;
     private Texture2D[] marshTextures;
@@ -76,6 +77,7 @@ public class MapGenerator: MonoBehaviour
         // 实例化一个沼泽材质
         marshMaterial = new Material(mapMaterial);
         marshMaterial.SetTextureScale("_MainTex", Vector2.one);
+        chunkMesh = GenerateMapMesh(mapChunkSize, mapChunkSize, cellSize);
         // Mesh mesh = new Mesh();
         // mesh.vertices = new Vector3[]
         // { 
@@ -102,7 +104,10 @@ public class MapGenerator: MonoBehaviour
         GameObject mapChunkObj = new GameObject("Chunk_" + chunkIndex.ToString());
         //mapChunkObj.transform.SetParent(parent);
         MapChunkController mapChunk = mapChunkObj.AddComponent<MapChunkController>();
-        mapChunkObj.AddComponent<MeshFilter>().mesh = GenerateMapMesh(mapChunkSize, mapChunkSize, cellSize);
+        mapChunkObj.AddComponent<MeshFilter>().mesh = chunkMesh;
+        // 添加碰撞体
+        mapChunkObj.AddComponent<MeshCollider>();
+
         //mapChunkObj.AddComponent<MapChunkController>();
         // Generate a map mesh
         //调用下面的GenerateMapMesh私有方法创建一个 Mesh 对象，并交给 meshFilter 显示出来
@@ -136,8 +141,9 @@ public class MapGenerator: MonoBehaviour
         mapChunk.transform.position = position;
         mapChunkObj.transform.SetParent(parent);
 
-        // 初始化 Chunk
-        mapChunk.Init(chunkIndex, position + new Vector3((mapChunkSize * cellSize) / 2, 0, (mapChunkSize * cellSize) / 2));
+        // 生成场景物体数据
+        List<MapChunkMapObjectModel> mapObjectModelList = SpawnMapObject(chunkIndex);
+        mapChunk.Init(chunkIndex, position + new Vector3((mapChunkSize * cellSize) / 2, 0, (mapChunkSize * cellSize) / 2), mapObjectModelList);
 
         //生成场景物体
         //SpawnMapObject(mapGrid, mapConfig, spawnSeed);
@@ -327,7 +333,7 @@ public class MapGenerator: MonoBehaviour
     /// <summary>
     /// 生成各种地图对象
     /// </summary>
-    private void SpawnMapObject(MapGrid mapGrid, MapConfig spawnConfig, int spawnSeed)
+    private List<MapChunkMapObjectModel> SpawnMapObject(Vector2Int chunkIndex)
     {
         //#region Test logic
         //for (int i = 0; i < mapObjects.Count; i++)
@@ -339,19 +345,21 @@ public class MapGenerator: MonoBehaviour
 
         // 使用种子来进行随机生成
         Random.InitState(spawnSeed);
-        int mapHeight = mapGrid.MapHeight;
-        int mapWidth = mapGrid.MapWidth;
+        List<MapChunkMapObjectModel> mapChunkObjectList = new List<MapChunkMapObjectModel>();
+
+        int offsetX = chunkIndex.x * mapChunkSize;
+        int offsetY = chunkIndex.y * mapChunkSize;
 
         // 便利地图顶点
-        for (int x = 1; x < mapWidth; x++)
+        for (int x = 1; x < mapChunkSize; x++)
         {
-            for (int y = 1; y < mapHeight; y++)
+            for (int y = 1; y < mapChunkSize; y++)
             {
-                MapVertex mapVertex = mapGrid.GetVertex(x, y);
+                MapVertex mapVertex = mapGrid.GetVertex(x + offsetX, y + offsetY);
                 // 根据概率配置随机
                 //List<MapObjectSpawnConfigModel> configModels = spawnConfig.SpawnConfigDic[mapVertex.VertexType];
                 // 1. 先从原生配置表的 List 中，找出当前顶点地形（比如森林）对应的规则
-                TerrainSpawnRule currentRule = spawnConfig.spawnRules.Find(rule => rule.terrainType == mapVertex.VertexType);
+                TerrainSpawnRule currentRule = mapConfig.spawnRules.Find(rule => rule.terrainType == mapVertex.VertexType);
 
                 // 2. 安全检查：如果策划没有在配置表里配这个地形，就跳过当前顶点，防止程序报错崩溃
                 if (currentRule == null) continue;
@@ -381,14 +389,16 @@ public class MapGenerator: MonoBehaviour
                 if (spawnModel.isEmpty == false && spawnModel.prefab != null)
                 {
                     // 实例化物品
-                    Vector3 offset = new Vector3(Random.Range(-cellSize / 2, cellSize / 2), 0, Random.Range(-cellSize / 2, cellSize / 2));
-
+                    Vector3 position = mapVertex.Position + new Vector3(Random.Range(-cellSize / 2, cellSize / 2), 0, Random.Range(-cellSize / 2, cellSize / 2));
+                    mapChunkObjectList.Add
+                        (new MapChunkMapObjectModel() { Prefab = spawnModel.prefab, Position = position });
                     // 【注意这里】：去掉了末尾的 , transform
                     //GameObject go = GameObject.Instantiate(spawnModel.prefab, mapVertex.Position + offset, Quaternion.identity);
                     //mapObjects.Add(go);
                 }
             }
         }
+        return mapChunkObjectList;
     }
 
 }
