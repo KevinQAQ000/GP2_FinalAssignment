@@ -2,13 +2,133 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Player_Controller : MonoBehaviour
+/// <summary>
+/// 玩家状态枚举
+/// </summary>
+public enum PlayerState
 {
+    Idle,
+    Move,
+    Attack,
+    BeAttack,
+    Dead
+}
 
+/// <summary>
+/// 玩家控制器
+/// </summary>
+public class Player_Controller : MonoBehaviour, IStateMachineOwner
+{
+    public static Player_Controller Instance { get; private set; }
 
-    void Update()
+    public Animator animator;
+    public CharacterController characterController;
+    private StateMachine stateMachine;
+    public Transform playerTransform { get; private set; }
+
+    private void Awake()
     {
-        //非常简单的玩家控制器。
-        transform.Translate(new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical")) * Time.deltaTime * 4f);
+        Instance = this;
     }
+    private void Start()
+    {
+        Init();
+    }
+    public void Init()
+    {
+        playerTransform = transform; // 继承 MonoBehaviour 后，transform 就回来了
+        stateMachine = new StateMachine();
+        stateMachine.Init(this);
+
+        // 初始状态为待机
+        stateMachine.ChangeState<Player_Idle>((int)PlayerState.Idle);
+    }
+
+    private void Update()
+    {
+        if (stateMachine != null)
+        {
+            stateMachine.Update();
+        }
+    }
+
+    /// <summary>
+    /// 真正的物理位移执行者
+    /// </summary>
+    public void DoMove(float h, float v)
+    {
+        Vector3 moveDir = new Vector3(h, 0, v);
+
+        // 【修改这里】：在末尾加上 Space.World，确保角色永远按真实世界的东南西北移动
+        playerTransform.Translate(moveDir * Time.deltaTime * 4f, Space.World);
+
+        if (moveDir != Vector3.zero)
+        {
+            playerTransform.rotation = Quaternion.LookRotation(moveDir);
+        }
+    }
+}
+
+/// <summary>
+/// 状态机所有者接口 (给 Player_Controller 贴的标签)
+/// </summary>
+public interface IStateMachineOwner { }
+
+public abstract class StateBase
+{
+    protected IStateMachineOwner owner;
+    protected int stateType;
+    protected StateMachine stateMachine;
+
+    // 【核心升级】：加上 virtual，并接收 3 个参数，和教程插件保持绝对一致！
+    public virtual void Init(IStateMachineOwner owner, int stateType, StateMachine stateMachine)
+    {
+        this.owner = owner;
+        this.stateType = stateType;
+        this.stateMachine = stateMachine;
+    }
+
+    public virtual void Enter() { }
+    public virtual void Update() { }
+    public virtual void Exit() { }
+}
+
+public class StateMachine
+{
+    private IStateMachineOwner owner;
+    private StateBase currentState;
+    private Dictionary<int, StateBase> stateDict = new Dictionary<int, StateBase>();
+
+    public void Init(IStateMachineOwner owner)
+    {
+        this.owner = owner;
+    }
+
+    public void ChangeState<T>(int stateId) where T : StateBase, new()
+    {
+        if (currentState != null)
+        {
+            currentState.Exit();
+        }
+
+        if (!stateDict.ContainsKey(stateId))
+        {
+            T newState = new T();
+            // 【核心升级】：初始化时，把 3 个参数传进去 (所有者、状态ID、状态机自己)
+            newState.Init(owner, stateId, this);
+            stateDict.Add(stateId, newState);
+        }
+
+        currentState = stateDict[stateId];
+        currentState.Enter();
+    }
+
+    public void Update()
+    {
+        if (currentState != null)
+        {
+            currentState.Update();
+        }
+    }
+
 }
