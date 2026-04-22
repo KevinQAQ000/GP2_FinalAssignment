@@ -455,7 +455,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!64 &831625808
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -595,6 +595,78 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &950324022
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 950324024}
+  - component: {fileID: 950324023}
+  m_Layer: 0
+  m_Name: Managers
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &950324023
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 950324022}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de91b4ef328de2d4e911d1b7012105b0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mainLight: {fileID: 410087040}
+  timeStateDatas:
+  - durationTime: 150
+    sunIntensity: 0.5
+    sunColor: {r: 0.9245283, g: 0.5418872, b: 0.18316115, a: 1}
+    sunRotation: {x: 30, y: 15, z: 0}
+    sunQuaternion: {x: 0.25660482, y: 0.12607862, z: -0.033782665, w: 0.9576622}
+  - durationTime: 200
+    sunIntensity: 1.2
+    sunColor: {r: 0.9433962, g: 0.92155355, b: 0.73869693, a: 1}
+    sunRotation: {x: 60, y: 0, z: 0}
+    sunQuaternion: {x: 0.5, y: 0, z: 0, w: 0.8660254}
+  - durationTime: 150
+    sunIntensity: 0.3
+    sunColor: {r: 0.92941177, g: 0.4749266, b: 0.1568627, a: 1}
+    sunRotation: {x: 180, y: 90, z: 0}
+    sunQuaternion: {x: 0.70710677, y: -0.00000003090862, z: -0.70710677, w: -0.00000003090862}
+  - durationTime: 60
+    sunIntensity: 0.2
+    sunColor: {r: 0.11872548, g: 0.23390815, b: 0.4339623, a: 1}
+    sunRotation: {x: 180, y: 90, z: 0}
+    sunQuaternion: {x: 0.70710677, y: -0.00000003090862, z: -0.70710677, w: -0.00000003090862}
+  - durationTime: 30
+    sunIntensity: 0.1
+    sunColor: {r: 0.023139875, g: 0.08094425, b: 0.16352195, a: 1}
+    sunRotation: {x: 180, y: 90, z: 0}
+    sunQuaternion: {x: 0.70710677, y: -0.00000003090862, z: -0.70710677, w: -0.00000003090862}
+  timeScale: 30
+--- !u!4 &950324024
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 950324022}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.75563115, y: 4.3475523, z: 6.914621}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1027221606
 GameObject:
   m_ObjectHideFlags: 0
@@ -682,3 +754,4 @@ SceneRoots:
   - {fileID: 1027221607}
   - {fileID: 831625811}
   - {fileID: 255341540}
+  - {fileID: 950324024}
