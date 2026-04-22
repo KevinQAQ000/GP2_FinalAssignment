@@ -29,9 +29,17 @@ public class MapManager : MonoBehaviour
 
     public float updateChunkTime = 1f;
     private bool canUpdateChunk = true;
-    private float chunkSizeOnWord;  // 在世界中实际的地图块尺寸 单位米
+    private float mapSizeOnWorld;// 在世界中实际的地图尺寸 单位米
+    private float chunkSizeOnWorld;  // 在世界中实际的地图块尺寸 单位米
     private List<MapChunkController> lastVisibleChunkList = new List<MapChunkController>();
 
+    public static MapManager Instance { get; private set; }
+    public float MapSizeOnWorld { get { return mapSize * mapChunkSize * cellSize; } }
+
+    private void Awake()
+    {
+        Instance = this;
+    }
 
     void Start()
     {
@@ -39,7 +47,7 @@ public class MapManager : MonoBehaviour
         mapGenerator = new MapGenerator(mapSize, mapChunkSize, cellSize, noiseLacunarity, mapSeed, spawnSeed, marshLimit, mapMaterial, forestTexutre, marshTextures, mapConfig);
         mapGenerator.GenerateMapData();
         mapChunkDic = new Dictionary<Vector2Int, MapChunkController>();
-        chunkSizeOnWord = mapChunkSize * cellSize;
+        chunkSizeOnWorld = mapChunkSize * cellSize;
     }
 
     // Update is called once per frame
@@ -110,8 +118,8 @@ public class MapManager : MonoBehaviour
     /// </summary>
     private Vector2Int GetMapChunkIndexByWorldPosition(Vector3 worldPostion)
     {
-        int x = Mathf.Clamp(Mathf.RoundToInt(worldPostion.x / chunkSizeOnWord), 1, mapSize);
-        int y = Mathf.Clamp(Mathf.RoundToInt(worldPostion.z / chunkSizeOnWord), 1, mapSize);
+        int x = Mathf.Clamp(Mathf.RoundToInt(worldPostion.x / chunkSizeOnWorld), 1, mapSize);
+        int y = Mathf.Clamp(Mathf.RoundToInt(worldPostion.z / chunkSizeOnWorld), 1, mapSize);
         return new Vector2Int(x, y);
     }
 
