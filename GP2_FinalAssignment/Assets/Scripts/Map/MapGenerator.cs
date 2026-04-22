@@ -58,7 +58,9 @@ public class MapGenerator: MonoBehaviour
         // 生成噪声图 高度/地貌分布图
         //把参数传给噪声生成器，得到一张填满 0~1 之间小数的二维表格（类似于地形高低起伏图）
         //float[,] noiseMap = GenerateNoiseMap(mapWidth, mapHeight, noiseLacunarity, mapseed);
-        float[,] noiseMap = GenerateNoiseMap(mapSize * mapChunkSize, mapSize * mapChunkSize, noiseLacunarity, mapSeed);
+        // 应用地图种子
+        Random.InitState(mapSeed);
+        float[,] noiseMap = GenerateNoiseMap(mapSize * mapChunkSize, mapSize * mapChunkSize, noiseLacunarity);
 
         // 生成网格数据
         // 面板填好的长、宽、大小传进去，新建一个 MapGrid 实例。
@@ -78,6 +80,9 @@ public class MapGenerator: MonoBehaviour
         marshMaterial = new Material(mapMaterial);
         marshMaterial.SetTextureScale("_MainTex", Vector2.one);
         chunkMesh = GenerateMapMesh(mapChunkSize, mapChunkSize, cellSize);
+        // 使用种子来进行随机生成
+        Random.InitState(spawnSeed);
+
         // Mesh mesh = new Mesh();
         // mesh.vertices = new Vector3[]
         // { 
@@ -208,10 +213,10 @@ public class MapGenerator: MonoBehaviour
     /// <summary>
     /// 生成噪声图
     /// </summary>
-    private float[,] GenerateNoiseMap(int width, int height, float lacunarity, int seed)
+    private float[,] GenerateNoiseMap(int width, int height, float lacunarity)
     {
         // 应用种子
-        Random.InitState(seed);//这个函数会根据传入的 seed 值来设置随机数生成器的状态。这样，在每次使用相同的 seed 时，生成的随机数序列都会相同，从而确保了噪声图的一致性。
+        //Random.InitState(seed);//这个函数会根据传入的 seed 值来设置随机数生成器的状态。这样，在每次使用相同的 seed 时，生成的随机数序列都会相同，从而确保了噪声图的一致性。
         lacunarity += 0.1f;//// 稍微增加一点频率，防止外部传 0 导致算出来的噪声全是平的。
         
         // 这里的噪声图是为了顶点服务的
@@ -309,7 +314,7 @@ public class MapGenerator: MonoBehaviour
                             {
                                 // 是沼泽贴图的颜色
                                 Color color = marshTextures[textureIndex].GetPixel(x1, y1);
-                                if (color.a == 0)
+                                if (color.a < 1f)
                                 {
                                     mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, forestTexutre.GetPixel(x1, y1));
                                 }
@@ -333,16 +338,11 @@ public class MapGenerator: MonoBehaviour
     /// <summary>
     /// 生成各种地图对象
     /// </summary>
+    /// <summary>
+    /// 生成各种地图对象
+    /// </summary>
     private List<MapChunkMapObjectModel> SpawnMapObject(Vector2Int chunkIndex)
     {
-        //#region Test logic
-        //for (int i = 0; i < mapObjects.Count; i++)
-        //{
-        //    DestroyImmediate(mapObjects[i].gameObject);
-        //}
-        //mapObjects.Clear();
-        //#endregion
-
         // 使用种子来进行随机生成
         Random.InitState(spawnSeed);
         List<MapChunkMapObjectModel> mapChunkObjectList = new List<MapChunkMapObjectModel>();
@@ -350,51 +350,47 @@ public class MapGenerator: MonoBehaviour
         int offsetX = chunkIndex.x * mapChunkSize;
         int offsetY = chunkIndex.y * mapChunkSize;
 
-        // 便利地图顶点
+        // 遍历地图顶点
         for (int x = 1; x < mapChunkSize; x++)
         {
             for (int y = 1; y < mapChunkSize; y++)
             {
                 MapVertex mapVertex = mapGrid.GetVertex(x + offsetX, y + offsetY);
-                // 根据概率配置随机
-                //List<MapObjectSpawnConfigModel> configModels = spawnConfig.SpawnConfigDic[mapVertex.VertexType];
-                // 1. 先从原生配置表的 List 中，找出当前顶点地形（比如森林）对应的规则
-                TerrainSpawnRule currentRule = mapConfig.spawnRules.Find(rule => rule.terrainType == mapVertex.VertexType);
 
-                // 2. 安全检查：如果策划没有在配置表里配这个地形，就跳过当前顶点，防止程序报错崩溃
+                // 1. 找规则
+                TerrainSpawnRule currentRule = mapConfig.spawnRules.Find(rule => rule.terrainType == mapVertex.VertexType);
                 if (currentRule == null) continue;
 
-                // 3. 拿到该地形下的物品生成池（也就是原来 configModels 要的数据）
+                // 2. 拿到生成池
                 List<MapObjectSpawnConfigModel> configModels = currentRule.spawnModels;
 
-
-                // 我们确保整个配置概率值合为100
-                int randValue = Random.Range(1, 101); // 实际命中数字是从1~100 
+                // 3. 开始算概率
+                int randValue = Random.Range(1, 101); // 实际命中数字是从 1~100 
                 float temp = 0;
-                int spawnConfigIndex = 0;   // 最终要生成的物品
 
-                // 30 20 50
+                // 【修改重点 1】：默认不选中任何物品，用 null 兜底
+                MapObjectSpawnConfigModel spawnModel = null;
+
                 for (int i = 0; i < configModels.Count; i++)
                 {
                     temp += configModels[i].probability;
-                    if (randValue < temp)
+
+                    // 【修改重点 2】：用 <= 确保刚好踩中概率边界时也能命中
+                    if (randValue <= temp)
                     {
-                        // 命中
-                        spawnConfigIndex = i;
+                        spawnModel = configModels[i]; // 命中物品
                         break;
                     }
                 }
-                // 确定到底生成什么物品
-                MapObjectSpawnConfigModel spawnModel = configModels[spawnConfigIndex];
-                if (spawnModel.isEmpty == false && spawnModel.prefab != null)
+
+                // 【修改重点 3】：双重安全检查
+                // 如果摇出的数字大于所有概率总和，spawnModel 就是 null，什么都不生成（自动留空）
+                // 只有当不仅命中了物品，且该物品不是空(isEmpty == false)，且挂载了模型时，才真正生成！
+                if (spawnModel != null && spawnModel.isEmpty == false && spawnModel.prefab != null)
                 {
                     // 实例化物品
                     Vector3 position = mapVertex.Position + new Vector3(Random.Range(-cellSize / 2, cellSize / 2), 0, Random.Range(-cellSize / 2, cellSize / 2));
-                    mapChunkObjectList.Add
-                        (new MapChunkMapObjectModel() { Prefab = spawnModel.prefab, Position = position });
-                    // 【注意这里】：去掉了末尾的 , transform
-                    //GameObject go = GameObject.Instantiate(spawnModel.prefab, mapVertex.Position + offset, Quaternion.identity);
-                    //mapObjects.Add(go);
+                    mapChunkObjectList.Add(new MapChunkMapObjectModel() { Prefab = spawnModel.prefab, Position = position });
                 }
             }
         }

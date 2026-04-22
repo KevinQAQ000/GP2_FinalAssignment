@@ -19,9 +19,6 @@ MonoBehaviour:
       prefab: {fileID: 0}
       probability: 20
     - isEmpty: 0
-      prefab: {fileID: 987551547880264449, guid: 5a672b2695a5f7947aa1244720ff711b, type: 3}
-      probability: 5
-    - isEmpty: 0
       prefab: {fileID: 5169557961396286326, guid: 71f7d64a50313de4ab336dc957882f4c, type: 3}
       probability: 5
     - isEmpty: 0
@@ -62,7 +59,7 @@ MonoBehaviour:
       probability: 5
     - isEmpty: 0
       prefab: {fileID: 1193482285669492005, guid: f6b8ce3d3ca9a24498d6184fc433e9ab, type: 3}
-      probability: 5
+      probability: 3
   - terrainType: 1
     spawnModels:
     - isEmpty: 1
