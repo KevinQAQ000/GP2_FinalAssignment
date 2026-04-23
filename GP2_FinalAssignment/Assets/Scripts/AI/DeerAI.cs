@@ -43,8 +43,14 @@ public class DeerAI : MonoBehaviour
     private void Update()
     {
         hungerTimer += Time.deltaTime;
-        float fixedHeight = 0f; 
-        transform.position = new Vector3(transform.position.x, fixedHeight, transform.position.z);
+
+        // 【关键保护】：检查锚点是否还在。如果被地图系统销毁了，就把引用设为 null
+        // 在 Unity 中，被销毁的物体不等于真正的 null，必须这样显式检查一下
+        if (herdGroupAnchor == null)
+        {
+            herdGroupAnchor = null;
+        }
+
         if (rootNode != null)
         {
             rootNode.Evaluate();
@@ -83,10 +89,15 @@ public class DeerAI : MonoBehaviour
 
     private NodeState FindGrass()
     {
+        // 如果草已经被销毁了，强制设为 null
+        if (targetGrass == null) targetGrass = null;
+
         if (targetGrass != null) return NodeState.Success;
+
         if (AIManager.Instance == null) return NodeState.Failure;
 
         targetGrass = AIManager.Instance.GetNearestGrass(transform.position);
+
         if (targetGrass != null)
         {
             currentTargetPos = targetGrass.position;
@@ -97,41 +108,36 @@ public class DeerAI : MonoBehaviour
 
     private NodeState MoveToTarget()
     {
+        // 关键保护：如果目标草突然没了，这个节点直接返回失败，让行为树去选别的动作
+        if (targetGrass == null && hungerTimer >= hungerTimerMax)
+        {
+            targetGrass = null; // 彻底清除伪引用
+            return NodeState.Failure;
+        }
+
         float dist = Vector3.Distance(transform.position, currentTargetPos);
         if (dist <= eatDistance) return NodeState.Success;
 
         Vector3 dir = (currentTargetPos - transform.position).normalized;
         dir.y = 0;
 
-        // ==========================================
-        // 【新增】：超声波/触须避障算法 (SphereCast)
-        // ==========================================
-        Vector3 rayStart = transform.position + Vector3.up * 0.5f; // 从鹿的胸口高度发射（防止扫到地面）
-        float bodyRadius = 0.3f; // 鹿的身体宽度，相当于雷达的粗细
-        float detectDistance = 1.5f; // 提前多远开始绕路
+        // 雷达避障
+        Vector3 rayStart = transform.position + Vector3.up * 0.5f;
+        float bodyRadius = 0.3f;
+        float detectDistance = 1.5f;
 
-        // 发射一个圆柱形的射线探测前方，忽略触发器（防止被没有体积的草挡住）
         if (Physics.SphereCast(rayStart, bodyRadius, dir, out RaycastHit hit, detectDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
         {
-            // 安全判断：
-            // 1. hit.normal.y < 0.5f 确保撞到的是墙壁或树干（法线朝水平），而不是有坡度的地面
-            // 2. hit.transform != targetGrass 确保它不会躲避自己正要去吃的那棵草
-            if (hit.normal.y < 0.5f && hit.transform != targetGrass)
+            // 这里也要检查 targetGrass 是否还活着
+            if (hit.normal.y < 0.5f && (targetGrass == null || hit.transform != targetGrass))
             {
-                // 【核心数学魔法】：把笔直撞墙的方向，顺着墙壁的切线方向“抹平”，让鹿贴着树干滑过去！
                 dir = Vector3.ProjectOnPlane(dir, hit.normal).normalized;
             }
         }
-        // ==========================================
 
-        // 执行移动
         transform.position += dir * moveSpeed * Time.deltaTime;
-
-        // 执行转身（转向实际移动的方向）
         if (dir != Vector3.zero)
-        {
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 0.1f);
-        }
 
         return NodeState.Running;
     }
@@ -154,24 +160,30 @@ public class DeerAI : MonoBehaviour
     // =========================================================
     private NodeState PickWanderDestination()
     {
-        if (isWaiting) return NodeState.Success; // 如果正在发呆，说明目标点已定
+        if (isWaiting) return NodeState.Success;
 
-        // 安全检查：如果万一没锚点（防止手动拖拽错误），围绕自己当前位置选点
-        if (herdGroupAnchor == null)
+        // 核心检查：如果锚点（家）被销毁了，立即清除引用
+        if (herdGroupAnchor == null) herdGroupAnchor = null;
+
+        Vector3 origin;
+
+        if (herdGroupAnchor != null)
         {
-            Vector2 selfCircle = Random.insideUnitCircle * wanderRadius;
-            currentTargetPos = transform.position + new Vector3(selfCircle.x, 0, selfCircle.y);
-            return NodeState.Success;
+            // 只有确定锚点活着，才敢读取它的 position
+            origin = herdGroupAnchor.position;
+        }
+        else
+        {
+            // 如果家（地块）被刷掉了，就以当前位置为中心，原地散步
+            origin = transform.position;
         }
 
-        // --- 核心修改 ---
-        // 围绕群体锚点（群中心）选一个随机点
         Vector2 randomCircle = Random.insideUnitCircle * wanderRadius;
-        currentTargetPos = herdGroupAnchor.position + new Vector3(randomCircle.x, 0, randomCircle.y);
+        currentTargetPos = origin + new Vector3(randomCircle.x, 0, randomCircle.y);
 
-        //Debug.Log(gameObject.name + "选择了新群体散步目标: " + currentTargetPos);
         return NodeState.Success;
     }
+
 
     private NodeState IdleWait()
     {

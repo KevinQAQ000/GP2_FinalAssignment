@@ -83,9 +83,15 @@ public class AIManager : MonoBehaviour
     {
         Transform nearest = null;
         float minDistance = float.MaxValue;
+
+        // 【关键】：先清理掉列表里所有已经被 Destroy 的草
         allGrassList.RemoveAll(item => item == null);
+
         foreach (var grass in allGrassList)
         {
+            // 额外双重保险
+            if (grass == null) continue;
+
             float dist = Vector3.Distance(aiPosition, grass.position);
             if (dist < minDistance)
             {

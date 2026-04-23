@@ -51,6 +51,8 @@ public class MapManager : MonoBehaviour
     void Start()
     {
         StartCoroutine(RestorePlayerPositionDelayed());// 等地图初始化完了再恢复玩家坐标
+        GenerateAirWalls(); // 生成边界空气墙
+
         // 此时所有物体的 Awake 都跑完了，Player_Controller 绝对存在了！
         if (shouldRestorePosition && Player_Controller.Instance != null)
         {
@@ -179,6 +181,9 @@ public class MapManager : MonoBehaviour
             this.spawnSeed = data.spawnSeed;
             this.marshLimit = data.marshLimit;
 
+            this.mapChunkSize = data.mapChunkSize;
+            this.cellSize = data.cellSize;
+
             // 【关键修改】：只把位置存进变量里，千万别在这里直接传送！
             if (data.hasSavedPosition)
             {
@@ -210,5 +215,62 @@ public class MapManager : MonoBehaviour
                 if (cc != null) cc.enabled = true;
             }
         }
+    }
+
+    private void GenerateAirWalls()
+    {
+        float totalSize = mapSize * mapChunkSize * cellSize;
+        float halfSize = totalSize / 2f;
+
+        // 1. 地图中心
+        Vector3 actualCenter = new Vector3(halfSize, 0, halfSize);
+
+        // 2. 清理旧墙
+        GameObject oldFolder = GameObject.Find("AirWalls_Boundary");
+        if (oldFolder != null) DestroyImmediate(oldFolder);
+        GameObject wallFolder = new GameObject("AirWalls_Boundary");
+
+        float h = 100f; // 墙高
+        float t = 5f;   // 墙厚 (Thickness)
+
+        // 【关键微调】：在 halfSize 的基础上，额外向外偏移“半个墙厚”
+        // 这样墙的表面会精准切在地毯边缘，而不是墙的中心在边缘
+        float pushOut = halfSize + (t / 2f);
+
+        // 3. 生成四堵墙
+        CreateWall(wallFolder.transform, actualCenter + new Vector3(0, 0, pushOut), new Vector3(totalSize + t, h, t), "Wall_North");
+        CreateWall(wallFolder.transform, actualCenter + new Vector3(0, 0, -pushOut), new Vector3(totalSize + t, h, t), "Wall_South");
+        CreateWall(wallFolder.transform, actualCenter + new Vector3(pushOut, 0, 0), new Vector3(t, h, totalSize + t), "Wall_East");
+        CreateWall(wallFolder.transform, actualCenter + new Vector3(-pushOut, 0, 0), new Vector3(t, h, totalSize + t), "Wall_West");
+    }
+
+    private void CreateWall(Transform parent, Vector3 pos, Vector3 size, string name)
+    {
+        GameObject wall = new GameObject(name);
+        wall.transform.SetParent(parent);
+
+        // 设置墙的位置，高度设为 size.y/2 确保它从地面向上延伸
+        wall.transform.position = new Vector3(pos.x, size.y / 2f, pos.z);
+
+        BoxCollider collider = wall.AddComponent<BoxCollider>();
+        collider.size = size;
+        collider.isTrigger = false;
+
+        // 增加刚体双重保障
+        Rigidbody rb = wall.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+    }
+
+    private void OnDrawGizmos()
+    {
+        // 在编辑器里画出红框，帮助你肉眼对齐
+        float totalSize = mapSize * mapChunkSize * cellSize;
+        float halfSize = totalSize / 2f;
+
+        // 红框的中心点
+        Vector3 gizmoCenter = new Vector3(halfSize, 25, halfSize);
+
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireCube(gizmoCenter, new Vector3(totalSize, 50, totalSize));
     }
 }

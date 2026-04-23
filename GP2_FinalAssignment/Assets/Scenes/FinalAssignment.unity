@@ -1541,10 +1541,10 @@ MonoBehaviour:
   - {fileID: 2800000, guid: 5bb888fcd2626214e8d427d7ab96d492, type: 3}
   - {fileID: 2800000, guid: 1dfde0d713d6c4a4fb27daba3a5ced6f, type: 3}
   - {fileID: 2800000, guid: af722b81ec925ce4597c11f04e1b37b6, type: 3}
-  - {fileID: 2800000, guid: aa07c22808a8dc242a208e6111871131, type: 3}
+  - {fileID: 2800000, guid: 392aabf1732adbe4a9b6876e3fd8c7ac, type: 3}
   - {fileID: 2800000, guid: 7aed40532e78f434ebe9be553fff2950, type: 3}
   - {fileID: 2800000, guid: 07635108e47dbfd49a0791c4cf24938c, type: 3}
-  - {fileID: 2800000, guid: aa07c22808a8dc242a208e6111871131, type: 3}
+  - {fileID: 2800000, guid: 392aabf1732adbe4a9b6876e3fd8c7ac, type: 3}
   - {fileID: 2800000, guid: 76cb049b03f55954a8fc1ce5f9200c03, type: 3}
   - {fileID: 2800000, guid: 080556539f73223418c57193a89d8941, type: 3}
   - {fileID: 2800000, guid: 8f5f954e3284b3f4097e1815696b526d, type: 3}
@@ -2243,7 +2243,7 @@ Transform:
   m_GameObject: {fileID: 1470663351}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 3.47, y: 0, z: 4.64}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2266,7 +2266,7 @@ CharacterController:
     m_Bits: 0
   m_LayerOverridePriority: 0
   m_ProvidesContacts: 0
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 3
   m_Height: 1.3
   m_Radius: 0.35
@@ -2289,6 +2289,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   animator: {fileID: 255341541}
   characterController: {fileID: 1470663353}
+  moveSpeed: 4
 --- !u!4 &1583509593 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8068886035040301214, guid: 0a8edb001861cb24f9940758144e1588, type: 3}
