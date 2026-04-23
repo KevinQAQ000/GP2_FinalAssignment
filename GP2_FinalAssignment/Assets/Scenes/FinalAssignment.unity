@@ -390,6 +390,57 @@ Animator:
   m_CorrespondingSourceObject: {fileID: 8845944481281985886, guid: 0a8edb001861cb24f9940758144e1588, type: 3}
   m_PrefabInstance: {fileID: 255341540}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &288115346
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 288115347}
+  - component: {fileID: 288115348}
+  m_Layer: 0
+  m_Name: AIManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &288115347
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 288115346}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &288115348
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 288115346}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 717be92345af78743b3577da6030c87f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  grassPrefabs:
+  - {fileID: 5392044469008384642, guid: e0adf790ee1c66d4ba7e88a04dec810d, type: 3}
+  - {fileID: 8013185886648752113, guid: c64713bb77a5dbe4e8ceec5d87e915fd, type: 3}
+  grassSpawnRadius: 20
+  deerPrefab: {fileID: 3289873723203319073, guid: 7a2b442ab8d22e5499670497f911520a, type: 3}
+  herdSpawnProbability: 0.5
+  allGrassList: []
 --- !u!1 &315104362
 GameObject:
   m_ObjectHideFlags: 0
@@ -2215,7 +2266,7 @@ CharacterController:
     m_Bits: 0
   m_LayerOverridePriority: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_Height: 1.3
   m_Radius: 0.35
@@ -2728,3 +2779,4 @@ SceneRoots:
   - {fileID: 1470663352}
   - {fileID: 1037790280}
   - {fileID: 1257524303}
+  - {fileID: 288115347}

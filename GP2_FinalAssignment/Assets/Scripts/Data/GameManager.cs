@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.SceneManagement;
-using System.IO; // 【注意】：一定别忘了引入这个，用来读写文件
+using System.IO; //用来读写文件
 
 public class GameManager : MonoBehaviour
 {
@@ -10,7 +10,7 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        // 监听 ESC 键逻辑不变... (省略)
+        // 监听 ESC 键
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (isPaused) ResumeGame();
@@ -32,7 +32,7 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1f;
     }
 
-    // ================== 【新增：保存游戏的核心逻辑】 ==================
+    // ================== 保存游戏 ==================
     public void SaveGame()
     {
         string path = Application.persistentDataPath + "/gamesave.json";

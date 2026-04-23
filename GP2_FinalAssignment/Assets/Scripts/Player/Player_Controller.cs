@@ -29,6 +29,7 @@ public class Player_Controller : MonoBehaviour, IStateMachineOwner
     private void Awake()
     {
         Instance = this;
+        playerTransform = transform;// 这里提前赋值，防止状态机在 Init 之前就访问到 playerTransform 导致空引用
     }
     private void Start()
     {

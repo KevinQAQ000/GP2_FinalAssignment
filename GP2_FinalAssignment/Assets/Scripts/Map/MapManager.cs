@@ -34,6 +34,10 @@ public class MapManager : MonoBehaviour
     private float chunkSizeOnWorld;  // 在世界中实际的地图块尺寸 单位米
     private List<MapChunkController> lastVisibleChunkList = new List<MapChunkController>();
 
+    //存档信息
+    private bool shouldRestorePosition = false;
+    private Vector3 savedPlayerPos;
+
     public static MapManager Instance { get; private set; }
     public float MapSizeOnWorld { get { return mapSize * mapChunkSize * cellSize; } }
 
@@ -41,10 +45,25 @@ public class MapManager : MonoBehaviour
     {
         Instance = this;
         LoadGameData();// 先读存档（修改变量）
+        
     }
 
     void Start()
     {
+        StartCoroutine(RestorePlayerPositionDelayed());// 等地图初始化完了再恢复玩家坐标
+        // 此时所有物体的 Awake 都跑完了，Player_Controller 绝对存在了！
+        if (shouldRestorePosition && Player_Controller.Instance != null)
+        {
+            // 防 CharacterController 冲突的经典写法
+            CharacterController cc = Player_Controller.Instance.GetComponent<CharacterController>();
+            if (cc != null) cc.enabled = false;
+
+            // 放心大胆地传送！
+            Player_Controller.Instance.playerTransform.position = savedPlayerPos;
+
+            if (cc != null) cc.enabled = true;
+            Debug.Log("✅ 成功在 Start 中恢复玩家坐标：" + savedPlayerPos);
+        }
         // 初始化地图生成器
         mapGenerator = new MapGenerator(mapSize, mapChunkSize, cellSize, noiseLacunarity, mapSeed, spawnSeed, marshLimit, mapMaterial, forestTexutre, marshTextures, mapConfig);
         // 先读存档（修改变量）
@@ -160,17 +179,35 @@ public class MapManager : MonoBehaviour
             this.spawnSeed = data.spawnSeed;
             this.marshLimit = data.marshLimit;
 
-            // 【新增】：恢复玩家坐标
+            // 【关键修改】：只把位置存进变量里，千万别在这里直接传送！
+            if (data.hasSavedPosition)
+            {
+                shouldRestorePosition = true;
+                savedPlayerPos = new Vector3(data.playerX, data.playerY, data.playerZ);
+            }
+        }
+    }
+
+    private IEnumerator RestorePlayerPositionDelayed()
+    {
+        // 等待一帧，确保所有物体的 Awake/Start 都跑完了，地图也初始化了
+        yield return null;
+
+        // 重新读取一次位置数据（或者从刚才读好的变量里拿）
+        string path = Application.persistentDataPath + "/gamesave.json";
+        if (File.Exists(path))
+        {
+            string json = File.ReadAllText(path);
+            SaveData data = JsonUtility.FromJson<SaveData>(json);
+
             if (data.hasSavedPosition && Player_Controller.Instance != null)
             {
-                // 注意：如果你的玩家挂了 CharacterController 组件，强行改 position 会无效！
-                // 必须先关掉组件，移动完再打开。如果没有用那个组件，直接赋值就行。
+                CharacterController cc = Player_Controller.Instance.GetComponent<CharacterController>();
+                if (cc != null) cc.enabled = false;
 
-                // 推荐的万能移动写法：
-                Vector3 savedPos = new Vector3(data.playerX, data.playerY, data.playerZ);
-                Player_Controller.Instance.playerTransform.position = savedPos;
+                Player_Controller.Instance.playerTransform.position = new Vector3(data.playerX, data.playerY, data.playerZ);
 
-                Debug.Log("✅ 成功恢复玩家坐标：" + savedPos);
+                if (cc != null) cc.enabled = true;
             }
         }
     }

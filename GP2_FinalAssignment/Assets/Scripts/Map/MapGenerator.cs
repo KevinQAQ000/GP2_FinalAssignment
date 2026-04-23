@@ -178,6 +178,15 @@ public class MapGenerator: MonoBehaviour
         List<MapChunkMapObjectModel> mapObjectModelList = SpawnMapObject(chunkIndex);
         mapChunk.Init(chunkIndex, position + new Vector3((mapChunkSize * cellSize) / 2, 0, (mapChunkSize * cellSize) / 2), mapObjectModelList);
 
+        // 【新增】：通知 AI 管理器，这块地铺好了，问它要不要刷鹿群
+        if (AIManager.Instance != null)
+        {
+            float worldSize = mapChunkSize * cellSize; // 计算这块地有多宽
+
+            // 传入这块地的坐标、尺寸，以及把它挂在这个 Chunk 物体下
+            AIManager.Instance.TrySpawnHerdOnChunk(position, worldSize, mapChunkObj.transform);
+        }
+
         //生成场景物体
         //SpawnMapObject(mapGrid, mapConfig, spawnSeed);
         return mapChunk;
