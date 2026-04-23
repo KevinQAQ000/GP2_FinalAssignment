@@ -12,7 +12,6 @@ public class PlayerStateBase : StateBase
 {
     protected Player_Controller player;
 
-    // 【无需修改】：因为我们刚刚升级了底层的 StateBase，现在这里的 3个参数 和 override 已经能完美对应上了！
     public override void Init(IStateMachineOwner owner, int stateType, StateMachine stateMachine)
     {
         base.Init(owner, stateType, stateMachine);

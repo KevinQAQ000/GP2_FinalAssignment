@@ -118,6 +118,11 @@ public class MapGenerator: MonoBehaviour
         //调用下面的GenerateMapMesh私有方法创建一个 Mesh 对象，并交给 meshFilter 显示出来
         //mapChunkObj.AddComponent<MeshFilter>().mesh = GenerateMapMesh(mapHeight, mapWidth);
 
+        //确定坐标
+        Vector3 position = new Vector3(chunkIndex.x * mapChunkSize * cellSize, 0, chunkIndex.y * mapChunkSize * cellSize); // 注意这里应该是 y
+        mapChunk.transform.position = position;
+        mapChunkObj.transform.SetParent(parent);
+
         //生成地图块贴图
         //TO DO 优化
         // 生成地图块的贴图
@@ -125,10 +130,16 @@ public class MapGenerator: MonoBehaviour
         MonoManager.Instance.StartCoroutine
         (
             GenerateMapTexture(chunkIndex, (tex, isAllForest) => {
-                // 如果完全是森林，没必要在实例化一个材质球
+
+                float worldSize = mapChunkSize * cellSize; // 当前区块在世界里的米数
+
                 if (isAllForest)
                 {
                     mapChunkObj.AddComponent<MeshRenderer>().sharedMaterial = mapMaterial;
+
+                    // 通知小地图：生成一个纯森林的地块（传入 null，它会使用默认贴图）
+                    if (MinimapManager.Instance != null)
+                        MinimapManager.Instance.RegisterChunk(position, null, worldSize);
                 }
                 else
                 {
@@ -137,14 +148,30 @@ public class MapGenerator: MonoBehaviour
                     material.mainTexture = tex;
                     mapChunkObj.AddComponent<MeshRenderer>().material = material;
 
+                    // 通知小地图：生成一个带有具体地形（沼泽等）的地块贴图
+                    if (MinimapManager.Instance != null)
+                        MinimapManager.Instance.RegisterChunk(position, tex, worldSize);
                 }
-            }));
-        //meshRenderer.sharedMaterial.mainTexture = mapTexture;
+            })
+        );
+        //MonoManager.Instance.StartCoroutine
+        //(
+        //    GenerateMapTexture(chunkIndex, (tex, isAllForest) => {
+        //        // 如果完全是森林，没必要在实例化一个材质球
+        //        if (isAllForest)
+        //        {
+        //            mapChunkObj.AddComponent<MeshRenderer>().sharedMaterial = mapMaterial;
+        //        }
+        //        else
+        //        {
+        //            mapTexture = tex;
+        //            Material material = new Material(marshMaterial);
+        //            material.mainTexture = tex;
+        //            mapChunkObj.AddComponent<MeshRenderer>().material = material;
 
-        //确定坐标
-        Vector3 position = new Vector3(chunkIndex.x * mapChunkSize * cellSize, 0, chunkIndex.y * mapChunkSize * cellSize); // 注意这里应该是 y
-        mapChunk.transform.position = position;
-        mapChunkObj.transform.SetParent(parent);
+        //        }
+        //    }));
+        //meshRenderer.sharedMaterial.mainTexture = mapTexture;
 
         // 生成场景物体数据
         List<MapChunkMapObjectModel> mapObjectModelList = SpawnMapObject(chunkIndex);
@@ -250,88 +277,133 @@ public class MapGenerator: MonoBehaviour
         int cellOffsetY = chunkIndex.y * mapChunkSize + 1;
 
         // 是不是一张完整的森林地图块
-        bool isAllForest = true;
-        // 检查是否只有森林类型的格子
+        //bool isAllForest = true;
+        // 无论是不是全森林，我们都统一强制生成贴图，确保画风绝对一致！
+        bool isAllForest = false;
+
+        int textureCellSize = forestTexutre.width;
+        int textureSize = mapChunkSize * textureCellSize;
+        Texture2D mapTexture = new Texture2D(textureSize, textureSize, TextureFormat.RGB24, false);
+
         for (int y = 0; y < mapChunkSize; y++)
         {
-            if (isAllForest == false) break;
+            yield return null;
+            int pixelOffsetY = y * textureCellSize;
             for (int x = 0; x < mapChunkSize; x++)
             {
-                MapCell cell = mapGrid.GetCell(x + cellOffsetX, y + cellOffsetY);
-                if (cell != null && cell.TextureIndex != 0)
+                int pixelOffsetX = x * textureCellSize;
+                int textureIndex = mapGrid.GetCell(x + cellOffsetX, y + cellOffsetY).TextureIndex - 1;
+
+                for (int y1 = 0; y1 < textureCellSize; y1++)
                 {
-                    isAllForest = false;
-                    break;
+                    for (int x1 = 0; x1 < textureCellSize; x1++)
+                    {
+                        if (textureIndex < 0)
+                        {
+                            Color color = forestTexutre.GetPixel(x1, y1);
+                            mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, color);
+                        }
+                        else
+                        {
+                            Color color = marshTextures[textureIndex].GetPixel(x1, y1);
+                            if (color.a < 1f)
+                            {
+                                mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, forestTexutre.GetPixel(x1, y1));
+                            }
+                            else
+                            {
+                                mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, color);
+                            }
+                        }
+                    }
                 }
             }
         }
+        mapTexture.filterMode = FilterMode.Point;
+        mapTexture.wrapMode = TextureWrapMode.Clamp;
+        mapTexture.Apply();
+
+        //// 检查是否只有森林类型的格子
+        //for (int y = 0; y < mapChunkSize; y++)
+        //{
+        //    if (isAllForest == false) break;
+        //    for (int x = 0; x < mapChunkSize; x++)
+        //    {
+        //        MapCell cell = mapGrid.GetCell(x + cellOffsetX, y + cellOffsetY);
+        //        if (cell != null && cell.TextureIndex != 0)
+        //        {
+        //            isAllForest = false;
+        //            break;
+        //        }
+        //    }
+        //}
 
         //// 地图宽高
         //int mapWidth = cellTextureIndexMap.GetLength(0);
         //int mapHeight = cellTextureIndexMap.GetLength(1);
 
 
-        Texture2D mapTexture = null;
+        //Texture2D mapTexture = null;
         //Texture2D mapTexture = new Texture2D(mapWidth * textureCellSize, mapHeight * textureCellSize, TextureFormat.RGB24, false);
         // 如果这个地图块完全是森林，直接返回森林贴图
-        if (!isAllForest)
-        {
-            // 贴图都是矩形
-            int textureCellSize = forestTexutre.width;
-            // 整个地图块的宽高,正方形
-            int textureSize = mapChunkSize * textureCellSize;
-            mapTexture = new Texture2D(textureSize, textureSize, TextureFormat.RGB24, false);
+        //if (!isAllForest)
+        //{
+        //    // 贴图都是矩形
+        //    int textureCellSize = forestTexutre.width;
+        //    // 整个地图块的宽高,正方形
+        //    int textureSize = mapChunkSize * textureCellSize;
+        //    mapTexture = new Texture2D(textureSize, textureSize, TextureFormat.RGB24, false);
 
-            // 遍历每一个格子
-            for (int y = 0; y < mapChunkSize; y++)
-            {
-                // 一帧只执行一列 只绘制一列的像素
-                yield return null;
-                // 像素偏移量
-                int pixelOffsetY = y * textureCellSize;
-                for (int x = 0; x < mapChunkSize; x++)
-                {
+        //    // 遍历每一个格子
+        //    for (int y = 0; y < mapChunkSize; y++)
+        //    {
+        //        // 一帧只执行一列 只绘制一列的像素
+        //        yield return null;
+        //        // 像素偏移量
+        //        int pixelOffsetY = y * textureCellSize;
+        //        for (int x = 0; x < mapChunkSize; x++)
+        //        {
 
-                    int pixelOffsetX = x * textureCellSize;
-                    int textureIndex = mapGrid.GetCell(x + cellOffsetX, y + cellOffsetY).TextureIndex - 1;
-                    // 绘制每一个格子内的像素
-                    // 访问每一个像素点
-                    for (int y1 = 0; y1 < textureCellSize; y1++)
-                    {
-                        for (int x1 = 0; x1 < textureCellSize; x1++)
-                        {
+        //            int pixelOffsetX = x * textureCellSize;
+        //            int textureIndex = mapGrid.GetCell(x + cellOffsetX, y + cellOffsetY).TextureIndex - 1;
+        //            // 绘制每一个格子内的像素
+        //            // 访问每一个像素点
+        //            for (int y1 = 0; y1 < textureCellSize; y1++)
+        //            {
+        //                for (int x1 = 0; x1 < textureCellSize; x1++)
+        //                {
 
-                            // 设置某个像素点的颜色
-                            // 确定是森林还是沼泽
-                            // 这个地方是森林 ||
-                            // 这个地方是沼泽但是是透明的，这种情况需要绘制groundTexture同位置的像素颜色
-                            if (textureIndex < 0)
-                            {
-                                Color color = forestTexutre.GetPixel(x1, y1);
-                                mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, color);
-                            }
-                            else
-                            {
-                                // 是沼泽贴图的颜色
-                                Color color = marshTextures[textureIndex].GetPixel(x1, y1);
-                                if (color.a < 1f)
-                                {
-                                    mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, forestTexutre.GetPixel(x1, y1));
-                                }
-                                else
-                                {
-                                    mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, color);
-                                }
-                            }
+        //                    // 设置某个像素点的颜色
+        //                    // 确定是森林还是沼泽
+        //                    // 这个地方是森林 ||
+        //                    // 这个地方是沼泽但是是透明的，这种情况需要绘制groundTexture同位置的像素颜色
+        //                    if (textureIndex < 0)
+        //                    {
+        //                        Color color = forestTexutre.GetPixel(x1, y1);
+        //                        mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, color);
+        //                    }
+        //                    else
+        //                    {
+        //                        // 是沼泽贴图的颜色
+        //                        Color color = marshTextures[textureIndex].GetPixel(x1, y1);
+        //                        if (color.a < 1f)
+        //                        {
+        //                            mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, forestTexutre.GetPixel(x1, y1));
+        //                        }
+        //                        else
+        //                        {
+        //                            mapTexture.SetPixel(x1 + pixelOffsetX, y1 + pixelOffsetY, color);
+        //                        }
+        //                    }
 
-                        }
-                    }
-                }
-            }
-            mapTexture.filterMode = FilterMode.Point;
-            mapTexture.wrapMode = TextureWrapMode.Clamp;
-            mapTexture.Apply();
-        }
+        //                }
+        //            }
+        //        }
+        //    }
+        //    mapTexture.filterMode = FilterMode.Point;
+        //    mapTexture.wrapMode = TextureWrapMode.Clamp;
+        //    mapTexture.Apply();
+        //}
         callBack?.Invoke(mapTexture, isAllForest);
     }
 

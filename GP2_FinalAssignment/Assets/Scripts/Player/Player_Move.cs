@@ -10,8 +10,6 @@ public class Player_Move : PlayerStateBase
     public override void Enter()
     {
         base.Enter();
-        // 当状态机切换到“移动”时，立即播放走步动画
-        // 注意：这里的字符串必须和你 Animator 里的动画名称完全一致
         PlayAnimation("walk");
     }
 

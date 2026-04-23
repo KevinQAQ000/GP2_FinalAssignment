@@ -79,8 +79,6 @@ public abstract class StateBase
     protected IStateMachineOwner owner;
     protected int stateType;
     protected StateMachine stateMachine;
-
-    // 【核心升级】：加上 virtual，并接收 3 个参数，和教程插件保持绝对一致！
     public virtual void Init(IStateMachineOwner owner, int stateType, StateMachine stateMachine)
     {
         this.owner = owner;
@@ -114,7 +112,6 @@ public class StateMachine
         if (!stateDict.ContainsKey(stateId))
         {
             T newState = new T();
-            // 【核心升级】：初始化时，把 3 个参数传进去 (所有者、状态ID、状态机自己)
             newState.Init(owner, stateId, this);
             stateDict.Add(stateId, newState);
         }
