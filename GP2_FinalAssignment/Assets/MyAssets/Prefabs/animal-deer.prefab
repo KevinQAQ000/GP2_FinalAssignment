@@ -75,6 +75,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: f97f0c7d425a5cf4299bde2fdc3e9eb4, type: 3}
       insertIndex: -1
       addedObject: {fileID: 8463604671869139137}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: f97f0c7d425a5cf4299bde2fdc3e9eb4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6561739558228331572}
     - targetCorrespondingSourceObject: {fileID: -5151492872390713093, guid: f97f0c7d425a5cf4299bde2fdc3e9eb4, type: 3}
       insertIndex: -1
       addedObject: {fileID: 837113681335004320}
@@ -155,5 +158,35 @@ MonoBehaviour:
   moveSpeed: 2
   wanderRadius: 5
   eatDistance: 0.5
+  hungerTimer: 0
   hungerTimerMax: 10
+  playerDetectRange: 2
+  predatorDetectRange: 4
+  fleeSpeedMultiplier: 2.5
+  threatLayer:
+    serializedVersion: 2
+    m_Bits: 64
   herdGroupAnchor: {fileID: 0}
+  animator: {fileID: 6561739558228331572}
+--- !u!95 &6561739558228331572
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3289873723203319073}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: b823edecca49c9b4daaaea7a32e7ccb2, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0

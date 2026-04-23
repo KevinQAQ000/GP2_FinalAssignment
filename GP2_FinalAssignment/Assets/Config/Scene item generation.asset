@@ -20,31 +20,31 @@ MonoBehaviour:
       probability: 20
     - isEmpty: 0
       prefab: {fileID: 5169557961396286326, guid: 71f7d64a50313de4ab336dc957882f4c, type: 3}
-      probability: 5
+      probability: 2
     - isEmpty: 0
       prefab: {fileID: 2844963255978570268, guid: 41fa2f2d84db8cc4e8b68ec30b59ec2f, type: 3}
-      probability: 5
+      probability: 2
     - isEmpty: 0
       prefab: {fileID: 2815697623161508091, guid: 6567c4e320610dd44b07ac341fbef75b, type: 3}
-      probability: 5
+      probability: 2
     - isEmpty: 0
       prefab: {fileID: 934502562701606084, guid: 5035db6929f057c4ab4f7816ae8034d8, type: 3}
-      probability: 5
+      probability: 2
     - isEmpty: 0
       prefab: {fileID: 5243827849894277163, guid: 887a2acc9d27dfd41a81f79134077b71, type: 3}
-      probability: 5
+      probability: 2
     - isEmpty: 0
       prefab: {fileID: 7810517622756617219, guid: 1842b5842ca16bc439e59f24b759927b, type: 3}
-      probability: 5
+      probability: 2
     - isEmpty: 0
       prefab: {fileID: 5340314302411294851, guid: c562f8698c386484aba8d9e989987c47, type: 3}
-      probability: 5
+      probability: 2
     - isEmpty: 0
       prefab: {fileID: 6345691861479990125, guid: 4c73b6bb45462e04b96909350da62820, type: 3}
-      probability: 5
+      probability: 2
     - isEmpty: 0
       prefab: {fileID: 5614837822185260560, guid: 9a7d368330c27314bbc22e578efc4077, type: 3}
-      probability: 5
+      probability: 2
     - isEmpty: 0
       prefab: {fileID: 5392044469008384642, guid: e0adf790ee1c66d4ba7e88a04dec810d, type: 3}
       probability: 5
@@ -53,13 +53,13 @@ MonoBehaviour:
       probability: 5
     - isEmpty: 0
       prefab: {fileID: 4477206704402265912, guid: 38fdf8e82b53b5641a3a9f69429fb6e0, type: 3}
-      probability: 5
+      probability: 1
     - isEmpty: 0
       prefab: {fileID: 8718449060507877887, guid: 02a6c50cb50c171488608260b254cf23, type: 3}
-      probability: 5
+      probability: 1
     - isEmpty: 0
       prefab: {fileID: 1193482285669492005, guid: f6b8ce3d3ca9a24498d6184fc433e9ab, type: 3}
-      probability: 3
+      probability: 1
   - terrainType: 1
     spawnModels:
     - isEmpty: 1

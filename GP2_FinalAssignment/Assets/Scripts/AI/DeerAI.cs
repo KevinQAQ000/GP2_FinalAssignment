@@ -1,148 +1,159 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
 
 public class DeerAI : MonoBehaviour
 {
-    [Header("鹿的属性")]
-    public float moveSpeed = 2f;
-    [Tooltip("鹿围绕群体中心散步的范围")]
-    public float wanderRadius = 6f;
-    [Tooltip("吃草的距离阈值")]
-    public float eatDistance = 0.5f;
-    [Tooltip("多久饿一次")]
-    public float hungerTimerMax = 10f;
+    [Header("基础移动")]
+    public float moveSpeed = 3f;
+    public float wanderRadius = 10f;
+    public float eatDistance = 1.5f;
 
-    // 【新增】：由 AIManager 在生成时赋值，代表群体的中心
-    [Header("AI 引用（不用填）")]
-    public Transform herdGroupAnchor;
+    [Header("生存属性")]
+    public float hungerTimer = 0f;
+    public float hungerTimerMax = 20f;
 
-    private BTNode rootNode;
-    private Vector3 currentTargetPos; // AI 移动的目标
-    private Transform targetGrass; // 盯上的草
+    [Header("感官范围")]
+    public float playerDetectRange = 3f;    // 玩家靠近时的避让距离（已缩小一半）
+    public float predatorDetectRange = 12f; // 掠食者感知距离
+    public float fleeSpeedMultiplier = 2.5f; // 逃离掠食者时的速度倍率
+    public LayerMask threatLayer;            // 威胁层（包含 Player 和 Predator）
 
-    private float hungerTimer = 0f;
-    private bool isWaiting = false; // 散步时的停顿状态
-    private float waitTimer = 0f;
+    [Header("引用")]
+    public Transform herdGroupAnchor;   // 群体锚点
+    public Animator animator;
 
-    private void Start()
-    {
-        currentTargetPos = transform.position; // 初始目标设为当前位置
-
-        // 安全检查：防止如果你是手动把鹿拖进场景的，导致它没锚点
-        if (herdGroupAnchor == null)
-        {
-            Debug.LogWarning(gameObject.name + " 没有群体锚点，将围绕自己的出生点散步。");
-            // 创建一个临时的出生点锚点，防止报错
-            GameObject temp = new GameObject(gameObject.name + "_SelfAnchor");
-            temp.transform.position = transform.position;
-            herdGroupAnchor = temp.transform;
-        }
-
-        ConstructBehaviorTree();
-    }
+    // 内部逻辑变量
+    private Vector3 currentTargetPos;
+    private Transform targetGrass;
+    private bool isWaiting = false;
+    private string currentAnimState = ""; // 记录当前动画，防止重复播放
 
     private void Update()
     {
+        // 1. 生存计时
         hungerTimer += Time.deltaTime;
 
-        // 【关键保护】：检查锚点是否还在。如果被地图系统销毁了，就把引用设为 null
-        // 在 Unity 中，被销毁的物体不等于真正的 null，必须这样显式检查一下
-        if (herdGroupAnchor == null)
-        {
-            herdGroupAnchor = null;
-        }
-
-        if (rootNode != null)
-        {
-            rootNode.Evaluate();
-        }
-    }
-
-    private void ConstructBehaviorTree()
-    {
-        // 吃草序列
-        BTSequence eatGrassSequence = new BTSequence(
-            new BTAction(CheckHunger),
-            new BTAction(FindGrass),
-            new BTAction(MoveToTarget),
-            new BTAction(EatGrass)
-        );
-
-        // 散步序列
-        BTSequence wanderSequence = new BTSequence(
-            new BTAction(PickWanderDestination),
-            new BTAction(MoveToTarget),
-            new BTAction(IdleWait)
-        );
-
-        rootNode = new BTSelector(eatGrassSequence, wanderSequence);
-    }
-
-    // ==========================================
-    // 具体的 AI 行为实现
-    // ==========================================
-
-    private NodeState CheckHunger()
-    {
-        if (hungerTimer >= hungerTimerMax) return NodeState.Success;
-        return NodeState.Failure;
-    }
-
-    private NodeState FindGrass()
-    {
-        // 如果草已经被销毁了，强制设为 null
+        // 2. 引用保护：防止地块卸载导致空引用
         if (targetGrass == null) targetGrass = null;
+        if (herdGroupAnchor == null) herdGroupAnchor = null;
 
-        if (targetGrass != null) return NodeState.Success;
-
-        if (AIManager.Instance == null) return NodeState.Failure;
-
-        targetGrass = AIManager.Instance.GetNearestGrass(transform.position);
-
-        if (targetGrass != null)
-        {
-            currentTargetPos = targetGrass.position;
-            return NodeState.Success;
-        }
-        return NodeState.Failure;
+        // 3. 核心行为决策
+        HandleAIBehavior();
     }
 
-    private NodeState MoveToTarget()
+    private void HandleAIBehavior()
     {
-        // 关键保护：如果目标草突然没了，这个节点直接返回失败，让行为树去选别的动作
-        if (targetGrass == null && hungerTimer >= hungerTimerMax)
+        // 如果正在原地待机，只有发现掠食者才能打断
+        if (isWaiting)
         {
-            targetGrass = null; // 彻底清除伪引用
-            return NodeState.Failure;
+            if (CheckPredatorThreat())
+            {
+                StopAllCoroutines();
+                isWaiting = false;
+            }
+            else return;
         }
 
-        float dist = Vector3.Distance(transform.position, currentTargetPos);
-        if (dist <= eatDistance) return NodeState.Success;
-
-        Vector3 dir = (currentTargetPos - transform.position).normalized;
-        dir.y = 0;
-
-        // 雷达避障
-        Vector3 rayStart = transform.position + Vector3.up * 0.5f;
-        float bodyRadius = 0.3f;
-        float detectDistance = 1.5f;
-
-        if (Physics.SphereCast(rayStart, bodyRadius, dir, out RaycastHit hit, detectDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+        // --- 优先级 1：检测掠食者 (狮子/老虎) ---
+        Collider[] threats = Physics.OverlapSphere(transform.position, predatorDetectRange, threatLayer);
+        foreach (var t in threats)
         {
-            // 这里也要检查 targetGrass 是否还活着
-            if (hit.normal.y < 0.5f && (targetGrass == null || hit.transform != targetGrass))
+            if (t.CompareTag("Predator"))
             {
-                dir = Vector3.ProjectOnPlane(dir, hit.normal).normalized;
+                FleeFrom(t.transform.position, true); // 恐慌逃跑模式
+                return;
             }
         }
 
-        transform.position += dir * moveSpeed * Time.deltaTime;
+        // --- 优先级 2：检测玩家 (缓慢避让) ---
+        foreach (var t in threats)
+        {
+            if (t.CompareTag("Player"))
+            {
+                float dist = Vector3.Distance(transform.position, t.transform.position);
+                if (dist < playerDetectRange)
+                {
+                    FleeFrom(t.transform.position, false); // 避让模式
+                    return;
+                }
+            }
+        }
+
+        // --- 优先级 3：基础生存逻辑 ---
+        HandleBasicNeeds();
+    }
+
+    private bool CheckPredatorThreat()
+    {
+        Collider[] threats = Physics.OverlapSphere(transform.position, predatorDetectRange, threatLayer);
+        foreach (var t in threats)
+        {
+            if (t.CompareTag("Predator")) return true;
+        }
+        return false;
+    }
+
+    private void HandleBasicNeeds()
+    {
+        if (hungerTimer >= hungerTimerMax)
+        {
+            if (targetGrass == null) FindNearestGrass();
+            else MoveTo(targetGrass.position, true, moveSpeed);
+        }
+        else
+        {
+            if (currentTargetPos == Vector3.zero || Vector3.Distance(transform.position, currentTargetPos) < 0.5f)
+            {
+                PickNewWanderPos();
+            }
+            else
+            {
+                MoveTo(currentTargetPos, false, moveSpeed);
+            }
+        }
+    }
+
+    private void FleeFrom(Vector3 dangerPos, bool isPanic)
+    {
+        Vector3 fleeDir = (transform.position - dangerPos).normalized;
+        fleeDir.y = 0;
+
+        float speed = isPanic ? moveSpeed * fleeSpeedMultiplier : moveSpeed * 1.2f;
+
+        // 关键逻辑：如果是狮子靠近播 run，玩家靠近播 walk
+        string anim = isPanic ? "run" : "walk";
+
+        transform.position += fleeDir * speed * Time.deltaTime;
+
+        if (fleeDir != Vector3.zero)
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(fleeDir), 0.15f);
+
+        PlayAnimation(anim);
+        currentTargetPos = Vector3.zero; // 重置闲逛目标
+    }
+
+    private void MoveTo(Vector3 target, bool isEating, float speed)
+    {
+        float dist = Vector3.Distance(transform.position, target);
+        if (dist <= eatDistance)
+        {
+            if (isEating) Eat();
+            else StartCoroutine(WaitAtDestination());
+            return;
+        }
+
+        Vector3 dir = (target - transform.position).normalized;
+        dir.y = 0;
+        transform.position += dir * speed * Time.deltaTime;
+
         if (dir != Vector3.zero)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 0.1f);
 
-        return NodeState.Running;
+        PlayAnimation("walk");
     }
 
-    private NodeState EatGrass()
+    private void Eat()
     {
         if (targetGrass != null)
         {
@@ -150,54 +161,51 @@ public class DeerAI : MonoBehaviour
             targetGrass = null;
             hungerTimer = 0f;
             if (AIManager.Instance != null) AIManager.Instance.RespawnGrass();
-            return NodeState.Success;
+            StartCoroutine(WaitAtDestination());
         }
-        return NodeState.Failure;
     }
 
-    // =========================================================
-    // 【修改核心逻辑】：挑选散步目标点改为围绕“群体中心锚点”
-    // =========================================================
-    private NodeState PickWanderDestination()
+    private void FindNearestGrass()
     {
-        if (isWaiting) return NodeState.Success;
+        if (AIManager.Instance != null)
+            targetGrass = AIManager.Instance.GetNearestGrass(transform.position);
+    }
 
-        // 核心检查：如果锚点（家）被销毁了，立即清除引用
-        if (herdGroupAnchor == null) herdGroupAnchor = null;
-
-        Vector3 origin;
-
-        if (herdGroupAnchor != null)
-        {
-            // 只有确定锚点活着，才敢读取它的 position
-            origin = herdGroupAnchor.position;
-        }
-        else
-        {
-            // 如果家（地块）被刷掉了，就以当前位置为中心，原地散步
-            origin = transform.position;
-        }
-
+    private void PickNewWanderPos()
+    {
+        Vector3 origin = (herdGroupAnchor != null) ? herdGroupAnchor.position : transform.position;
         Vector2 randomCircle = Random.insideUnitCircle * wanderRadius;
         currentTargetPos = origin + new Vector3(randomCircle.x, 0, randomCircle.y);
-
-        return NodeState.Success;
     }
 
-
-    private NodeState IdleWait()
+    private IEnumerator WaitAtDestination()
     {
-        if (!isWaiting)
+        isWaiting = true;
+        currentTargetPos = Vector3.zero;
+        PlayAnimation("idle");
+        yield return new WaitForSeconds(Random.Range(2f, 5f));
+        isWaiting = false;
+    }
+
+    // 动画播放器：使用 CrossFade 实现平滑过渡
+    private void PlayAnimation(string animName)
+    {
+        if (animator != null && currentAnimState != animName)
         {
-            isWaiting = true;
-            waitTimer = Random.Range(2f, 5f);
+            currentAnimState = animName;
+            animator.CrossFade(animName, 0.2f);
         }
-        waitTimer -= Time.deltaTime;
-        if (waitTimer <= 0)
-        {
-            isWaiting = false;
-            return NodeState.Success;
-        }
-        return NodeState.Running;
+    }
+
+    // 在 Scene 窗口画出感知圆圈，方便调试
+    private void OnDrawGizmosSelected()
+    {
+        // 画出玩家感知范围（蓝色）
+        Gizmos.color = Color.blue;
+        Gizmos.DrawWireSphere(transform.position, playerDetectRange);
+
+        // 画出掠食者感知范围（红色）
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, predatorDetectRange);
     }
 }

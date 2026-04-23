@@ -1,20 +1,11 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-/// <summary>
-/// 地图块数据
-/// </summary>
-public class MapChunkData
-{
-    public List<MapChunkMapObjectModel> MapObjectList = new List<MapChunkMapObjectModel>();
-}
-public class MapChunkMapObjectModel
-{
-    public GameObject Prefab;//预制体
-    public Vector3 Position;//位置
-}
 
-
+// 数据类保持不变...
+[System.Serializable]
+public class MapChunkMapObjectModel { public GameObject Prefab; public Vector3 Position; }
+public class MapChunkData { public List<MapChunkMapObjectModel> MapObjectList = new List<MapChunkMapObjectModel>(); }
 
 public class MapChunkController : MonoBehaviour
 {
@@ -22,16 +13,51 @@ public class MapChunkController : MonoBehaviour
     public Vector3 CentrePosition { get; private set; }
 
     private MapChunkData mapChunkData;
-    private List<GameObject> mapObjectList;
-
+    private List<GameObject> mapObjectList = new List<GameObject>();
     private bool isActive = false;
+
+    // 核心修复：退出保护
+    private static bool isApplicationQuitting = false;
+
+    private void OnApplicationQuit()
+    {
+        isApplicationQuitting = true;
+    }
+
     public void Init(Vector2Int chunkIndex, Vector3 centrePosition, List<MapChunkMapObjectModel> MapObjectList)
     {
         ChunkIndex = chunkIndex;
         CentrePosition = centrePosition;
         mapChunkData = new MapChunkData();
         mapChunkData.MapObjectList = MapObjectList;
-        mapObjectList = new List<GameObject>(MapObjectList.Count);
+        if (mapObjectList == null) mapObjectList = new List<GameObject>();
+        mapObjectList.Clear();
+    }
+
+    private void OnDestroy()
+    {
+        // 如果是退出游戏，直接跳过回收逻辑，防止报错
+        if (isApplicationQuitting) return;
+
+        if (isActive)
+        {
+            ClearObjects();
+        }
+    }
+
+    private void ClearObjects()
+    {
+        // 增加安全检查：确保对象池单例还活着
+        if (mapObjectList == null || PoolManager.Instance == null) return;
+
+        for (int i = 0; i < mapObjectList.Count; i++)
+        {
+            if (mapObjectList[i] != null)
+            {
+                PoolManager.Instance.PushGameObject(mapObjectList[i]);
+            }
+        }
+        mapObjectList.Clear();
     }
 
     public void SetActive(bool active)
@@ -41,40 +67,25 @@ public class MapChunkController : MonoBehaviour
             isActive = active;
             gameObject.SetActive(isActive);
 
-            // 提前获取数据列表
-            List<MapChunkMapObjectModel> ObjectList = mapChunkData.MapObjectList;
+            if (mapChunkData == null) return;
+            List<MapChunkMapObjectModel> dataList = mapChunkData.MapObjectList;
 
             if (isActive)
             {
-                // 激活时：确保列表是空的，防止重复添加导致后面回收出错
-                mapObjectList.Clear();
-
-                for (int i = 0; i < ObjectList.Count; i++)
+                for (int i = 0; i < dataList.Count; i++)
                 {
-                    GameObject go = PoolManager.Instance.GetGameObject(ObjectList[i].Prefab, transform);
-                    if (go != null) // 安全检查
+                    GameObject go = PoolManager.Instance.GetGameObject(dataList[i].Prefab, transform);
+                    if (go != null)
                     {
-                        go.transform.position = ObjectList[i].Position;
+                        go.transform.position = dataList[i].Position;
                         mapObjectList.Add(go);
                     }
                 }
             }
             else
             {
-                // 【核心修复】：回收时，直接遍历实际存放物体的列表
-                // 使用 mapObjectList.Count 替代 ObjectList.Count
-                for (int i = 0; i < mapObjectList.Count; i++)
-                {
-                    // 增加非空检查，防止物体在运行中被意外销毁
-                    if (mapObjectList[i] != null)
-                    {
-                        PoolManager.Instance.PushGameObject(mapObjectList[i]);
-                    }
-                }
-                // 全部回收后清空列表
-                mapObjectList.Clear();
+                ClearObjects();
             }
         }
     }
-
 }
