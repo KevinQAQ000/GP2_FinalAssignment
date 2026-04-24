@@ -120,6 +120,15 @@ PrefabInstance:
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 242ce6f6ec6dcbe4e91ae8337ce60020, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7544084519680738100}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 242ce6f6ec6dcbe4e91ae8337ce60020, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1803315176654159982}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 242ce6f6ec6dcbe4e91ae8337ce60020, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5098324025240709111}
     - targetCorrespondingSourceObject: {fileID: -5151492872390713093, guid: 242ce6f6ec6dcbe4e91ae8337ce60020, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4200858322889836312}
@@ -151,7 +160,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.24, y: 1.27, z: 1}
+  m_Size: {x: 0.71, y: 1.27, z: 0.4}
   m_Center: {x: 0, y: 0.63, z: 0}
 --- !u!54 &4304153672691127355
 Rigidbody:
@@ -176,7 +185,79 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 1
-  m_IsKinematic: 1
+  m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 112
   m_CollisionDetection: 0
+--- !u!1 &6946043152039814137 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 242ce6f6ec6dcbe4e91ae8337ce60020, type: 3}
+  m_PrefabInstance: {fileID: 7828422322088517288}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7544084519680738100
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6946043152039814137}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e1ae4703fe2b414f8705e7056a858c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  identity: 0
+  hungerTimer: 0
+  hungerThreshold: 30
+  fullDuration: 100
+  detectRange: 20
+  sneakRange: 12
+  chaseRange: 6
+  attackRange: 1.5
+  walkSpeed: 2
+  sneakSpeed: 1.2
+  runSpeed: 6
+  patrolRadius: 15
+  animator: {fileID: 5098324025240709111}
+  preyLayer:
+    serializedVersion: 2
+    m_Bits: 128
+  obstacleLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  detectionDistance: 1
+--- !u!114 &1803315176654159982
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6946043152039814137}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 748fbb8fd4216a2499d2ef8c16e56e35, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  type: 1
+--- !u!95 &5098324025240709111
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6946043152039814137}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 60440ed671d36154ba361b18662b5ca0, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0

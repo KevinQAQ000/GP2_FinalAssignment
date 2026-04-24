@@ -3,25 +3,39 @@ using UnityEngine;
 
 public class AIManager : MonoBehaviour
 {
+    //[Tooltip("每个新地块生成时，有多大几率出现鹿群 (0~1)")]
+    //public float herdSpawnProbability = 0.2f; // 20%概率
+    //[Range(0, 1)]
+    //public float predatorSpawnProbability = 0.05f; // 极低概率，比如 5%
+
     public static AIManager Instance { get; private set; }
 
-    [Header("草的生成设置")]
-    public GameObject[] grassPrefabs;
-    [Tooltip("草在玩家周围多大范围内刷新")]
-    public float grassSpawnRadius = 20f;
-
-    [Header("鹿的动态生成设置")]
-    public GameObject deerPrefab;
-    [Tooltip("每个新地块生成时，有多大几率出现鹿群 (0~1)")]
-    public float herdSpawnProbability = 0.2f; // 20%概率
-
-    [Header("全局数据（不用填）")]
+    [Header("全局列表")]
     public List<Transform> allGrassList = new List<Transform>();
 
-    private void Awake()
-    {
-        Instance = this;
-    }
+    [Header("草的设置")]
+    public GameObject[] grassPrefabs;
+    public float grassSpawnRadius = 20f;
+
+    [Header("生态分布概率 (0~1)")]
+    [Tooltip("刷出鹿群的概率")]
+    public float deerProbability = 0.2f;
+    [Tooltip("刷出狮子的概率")]
+    public float lionProbability = 0.05f;
+    [Tooltip("刷出老虎的概率")]
+    public float tigerProbability = 0.05f;
+
+    [Header("预制体引用")]
+    public GameObject deerPrefab;
+    public GameObject lionPrefab;
+    public GameObject tigerPrefab;
+
+    private void Awake() => Instance = this;
+
+    //private void Awake()
+    //{
+    //    Instance = this;
+    //}
 
     // 注意：这里删除了 Start() 方法，因为我们不再一开始就全局盲目刷鹿了！
 
@@ -31,93 +45,159 @@ public class AIManager : MonoBehaviour
     /// <summary>
     /// 当 MapGenerator 铺好一块地时，调用此方法尝试刷鹿
     /// </summary>
+    /// <summary>
+    /// 地块生成时调用的核心方法
+    /// </summary>
     public void TrySpawnHerdOnChunk(Vector3 chunkPos, float chunkSizeWorld, Transform chunkParent)
     {
-        if (deerPrefab == null) return;
-
-        // 掷骰子：如果运气不好，这块地就不刷鹿了
-        if (Random.value > herdSpawnProbability) return;
-
-        // 1. 计算这块地的中心点 (假设 chunkPos 是地块左下角)
+        // 计算地块中心
         float halfSize = chunkSizeWorld / 2f;
         Vector3 chunkCenter = chunkPos + new Vector3(halfSize, 0, halfSize);
 
-        // 2. 在这块地中心生成一个群体锚点
-        GameObject anchorObj = new GameObject("DeerHerd_Dynamic");
-        anchorObj.transform.position = chunkCenter;
-        anchorObj.transform.SetParent(chunkParent);
-        HerdGroup groupAnchor = anchorObj.AddComponent<HerdGroup>();
+        // --- 逻辑：每一个 if 都是独立的，互不干扰 ---
 
-        // 3. 随机刷 2~3 只鹿
-        int herdSize = Random.Range(2, 4);
-        for (int j = 0; j < herdSize; j++)
+        // 1. 独立判定鹿群
+        if (Random.value < deerProbability)
         {
-            // 注意看！deerCircle 是在这里生成的，所以后面的代码才能用到它
-            Vector2 deerCircle = Random.insideUnitCircle * 3f;
+            SpawnDeers(chunkCenter, chunkParent);
+        }
 
-            Vector3 spawnPos = chunkCenter + new Vector3(deerCircle.x, 0, deerCircle.y);
+        // 2. 独立判定狮子 (注意：这里必须用 if，绝对不能用 else if)
+        if (Random.value < lionProbability)
+        {
+            SpawnSinglePredator(lionPrefab, chunkCenter, chunkParent, "Lion");
+        }
 
-            // 生成鹿
-            GameObject deerObj = Instantiate(deerPrefab, spawnPos, Quaternion.identity);
-            deerObj.transform.SetParent(chunkParent);
-
-            // 绑定锚点
-            DeerAI ai = deerObj.GetComponent<DeerAI>();
-            if (ai != null) ai.herdGroupAnchor = groupAnchor.transform;
+        // 3. 独立判定老虎 (注意：这里必须用 if，绝对不能用 else if)
+        if (Random.value < tigerProbability)
+        {
+            // 给老虎一个偏移量，防止一出生就和狮子模型重叠
+            Vector3 tigerPos = chunkCenter + new Vector3(4f, 0, 4f);
+            SpawnSinglePredator(tigerPrefab, tigerPos, chunkParent, "Tiger");
         }
     }
 
+    //public void TrySpawnHerdOnChunk(Vector3 chunkPos, float chunkSizeWorld, Transform chunkParent)
+    //{
+    //    float halfSize = chunkSizeWorld / 2f;
+    //    Vector3 chunkCenter = chunkPos + new Vector3(halfSize, 0, halfSize);
+
+    //    // 1. 尝试生成鹿群 (保持原有逻辑)
+    //    if (Random.value < herdSpawnProbability)
+    //    {
+    //        SpawnDeers(chunkCenter, chunkParent);
+    //    }
+
+    //    // 2. 尝试生成掠食者 (新增逻辑)
+    //    // 只有没刷鹿的地块，或者运气极好时，才刷掠食者，避免一出生就打架
+    //    if (Random.value < predatorSpawnProbability)
+    //    {
+    //        SpawnPredator(chunkCenter, chunkParent);
+    //    }
+    //}
+
+    //public void TrySpawnHerdOnChunk(Vector3 chunkPos, float chunkSizeWorld, Transform chunkParent)
+    //{
+    //    if (deerPrefab == null) return;
+
+    //    // 掷骰子：如果运气不好，这块地就不刷鹿了
+    //    if (Random.value > herdSpawnProbability) return;
+
+    //    // 1. 计算这块地的中心点 (假设 chunkPos 是地块左下角)
+    //    float halfSize = chunkSizeWorld / 2f;
+    //    Vector3 chunkCenter = chunkPos + new Vector3(halfSize, 0, halfSize);
+
+    //    // 2. 在这块地中心生成一个群体锚点
+    //    GameObject anchorObj = new GameObject("DeerHerd_Dynamic");
+    //    anchorObj.transform.position = chunkCenter;
+    //    anchorObj.transform.SetParent(chunkParent);
+    //    HerdGroup groupAnchor = anchorObj.AddComponent<HerdGroup>();
+
+    //    // 3. 随机刷 2~3 只鹿
+    //    int herdSize = Random.Range(2, 4);
+    //    for (int j = 0; j < herdSize; j++)
+    //    {
+    //        // 注意看！deerCircle 是在这里生成的，所以后面的代码才能用到它
+    //        Vector2 deerCircle = Random.insideUnitCircle * 3f;
+
+    //        Vector3 spawnPos = chunkCenter + new Vector3(deerCircle.x, 0, deerCircle.y);
+
+    //        // 生成鹿
+    //        GameObject deerObj = Instantiate(deerPrefab, spawnPos, Quaternion.identity);
+    //        deerObj.transform.SetParent(chunkParent);
+
+    //        // 绑定锚点
+    //        DeerAI ai = deerObj.GetComponent<DeerAI>();
+    //        if (ai != null) ai.herdGroupAnchor = groupAnchor.transform;
+    //    }
+    //}
+
+    //private void SpawnPredator(Vector3 position, Transform parent)
+    //{
+    //    // 随机选狮子还是老虎
+    //    GameObject prefab = (Random.value > 0.5f) ? lionPrefab : tigerPrefab;
+    //    if (prefab == null) return;
+
+    //    GameObject predator = Instantiate(prefab, position, Quaternion.identity);
+    //    predator.transform.SetParent(parent);
+
+    //    // 如果有初始化逻辑可以在这里写
+    //    Debug.Log($"生成了掠食者: {prefab.name} at {position}");
+    //}
+    private void SpawnSinglePredator(GameObject prefab, Vector3 pos, Transform parent, string debugName)
+    {
+        if (prefab == null) return;
+        GameObject predator = Instantiate(prefab, pos, Quaternion.identity);
+        predator.transform.SetParent(parent);
+        // Debug.Log($"生态系统：地块生成了 {debugName}");
+    }
+    private void SpawnDeers(Vector3 center, Transform parent)
+    {
+        if (deerPrefab == null) return;
+
+        GameObject anchorObj = new GameObject("DeerHerd_Dynamic");
+        anchorObj.transform.position = center;
+        anchorObj.transform.SetParent(parent);
+        anchorObj.AddComponent<HerdGroup>();
+
+        int herdSize = Random.Range(2, 4);
+        for (int j = 0; j < herdSize; j++)
+        {
+            Vector2 circle = Random.insideUnitCircle * 4f; // 稍微散开一点
+            Vector3 spawnPos = center + new Vector3(circle.x, 0, circle.y);
+            GameObject deer = Instantiate(deerPrefab, spawnPos, Quaternion.identity);
+            deer.transform.SetParent(parent);
+
+            DeerAI ai = deer.GetComponent<DeerAI>();
+            if (ai != null) ai.herdGroupAnchor = anchorObj.transform;
+        }
+    }
+
+
     // --- 草的管理逻辑 ---
 
-    public void RegisterGrass(Transform grass)
-    {
-        if (!allGrassList.Contains(grass)) allGrassList.Add(grass);
-    }
-
-    public void UnregisterGrass(Transform grass)
-    {
-        if (allGrassList.Contains(grass)) allGrassList.Remove(grass);
-    }
+    public void RegisterGrass(Transform grass) => allGrassList.Add(grass);
+    public void UnregisterGrass(Transform grass) => allGrassList.Remove(grass);
 
     public Transform GetNearestGrass(Vector3 aiPosition)
     {
-        // 关键：清除列表里已经变成 null (被销毁) 的引用
         allGrassList.RemoveAll(g => g == null);
-
         Transform nearest = null;
         float minDistance = float.MaxValue;
-
         foreach (var grass in allGrassList)
         {
             float dist = Vector3.Distance(aiPosition, grass.position);
-            if (dist < minDistance)
-            {
-                minDistance = dist;
-                nearest = grass;
-            }
+            if (dist < minDistance) { minDistance = dist; nearest = grass; }
         }
         return nearest;
     }
 
-    /// <summary>
-    /// 【安全修复】：草被吃掉后，必须在玩家附近刷新，不能刷到未生成的虚空里去！
-    /// </summary>
     public void RespawnGrass()
     {
-        if (grassPrefabs == null || grassPrefabs.Length == 0) return;
-
-        // 获取玩家当前坐标作为刷新中心
-        Vector3 center = Vector3.zero;
-        if (Player_Controller.Instance != null)
-        {
-            center = Player_Controller.Instance.playerTransform.position;
-        }
-
-        int randomIndex = Random.Range(0, grassPrefabs.Length);
+        if (grassPrefabs.Length == 0) return;
+        Vector3 center = Player_Controller.Instance ? Player_Controller.Instance.playerTransform.position : Vector3.zero;
         Vector2 randomCircle = Random.insideUnitCircle * grassSpawnRadius;
-
-        // 基于玩家位置偏移
         Vector3 spawnPos = center + new Vector3(randomCircle.x, 0, randomCircle.y);
-        Instantiate(grassPrefabs[randomIndex], spawnPos, Quaternion.identity);
+        Instantiate(grassPrefabs[Random.Range(0, grassPrefabs.Length)], spawnPos, Quaternion.identity);
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class DeerAI : MonoBehaviour
 {
@@ -14,37 +15,59 @@ public class DeerAI : MonoBehaviour
     public float hungerTimerMax = 20f;
 
     [Header("感官范围")]
-    public float playerDetectRange = 3f;    // 玩家靠近时的避让距离（已缩小一半）
-    public float predatorDetectRange = 12f; // 掠食者感知距离
-    public float fleeSpeedMultiplier = 2.5f; // 逃离掠食者时的速度倍率
-    public LayerMask threatLayer;            // 威胁层（包含 Player 和 Predator）
+    public float playerDetectRange = 3f;
+    public float predatorDetectRange = 12f;
+    public float fleeSpeedMultiplier = 2.5f;
+    public LayerMask threatLayer;
 
     [Header("引用")]
-    public Transform herdGroupAnchor;   // 群体锚点
+    public Transform herdGroupAnchor;
     public Animator animator;
 
     // 内部逻辑变量
     private Vector3 currentTargetPos;
     private Transform targetGrass;
     private bool isWaiting = false;
-    private string currentAnimState = ""; // 记录当前动画，防止重复播放
+    private string currentAnimState = "";
+
+    [Header("避障设置")]
+    public LayerMask obstacleLayer;
+    public float detectionDistance = 2.0f;
+
+    // --- 【物理规范化新增变量】 ---
+    private Rigidbody rb;
+    private Vector3 targetVelocity; // 大脑计算出的目标速度，交给腿（FixedUpdate）去执行
+
+    private void Awake()
+    {
+        // 获取刚体组件
+        rb = GetComponent<Rigidbody>();
+    }
 
     private void Update()
     {
         // 1. 生存计时
         hungerTimer += Time.deltaTime;
 
-        // 2. 引用保护：防止地块卸载导致空引用
+        // 2. 引用保护
         if (targetGrass == null) targetGrass = null;
         if (herdGroupAnchor == null) herdGroupAnchor = null;
 
-        // 3. 核心行为决策
+        // 3. 核心行为决策（相当于 AI 的大脑，只思考不走路）
         HandleAIBehavior();
+    }
+    private void FixedUpdate()
+    {
+        if (rb != null)
+        {
+            // 将大脑思考出的 targetVelocity 应用给刚体。
+            // 保持原本的 Y 轴速度（重力下落），只改变水平方向的速度
+            rb.linearVelocity = new Vector3(targetVelocity.x, rb.linearVelocity.y, targetVelocity.z);
+        }
     }
 
     private void HandleAIBehavior()
     {
-        // 如果正在原地待机，只有发现掠食者才能打断
         if (isWaiting)
         {
             if (CheckPredatorThreat())
@@ -55,18 +78,18 @@ public class DeerAI : MonoBehaviour
             else return;
         }
 
-        // --- 优先级 1：检测掠食者 (狮子/老虎) ---
+        // --- 优先级 1：检测掠食者 ---
         Collider[] threats = Physics.OverlapSphere(transform.position, predatorDetectRange, threatLayer);
         foreach (var t in threats)
         {
             if (t.CompareTag("Predator"))
             {
-                FleeFrom(t.transform.position, true); // 恐慌逃跑模式
+                FleeFrom(t.transform.position, true);
                 return;
             }
         }
 
-        // --- 优先级 2：检测玩家 (缓慢避让) ---
+        // --- 优先级 2：检测玩家 ---
         foreach (var t in threats)
         {
             if (t.CompareTag("Player"))
@@ -74,13 +97,13 @@ public class DeerAI : MonoBehaviour
                 float dist = Vector3.Distance(transform.position, t.transform.position);
                 if (dist < playerDetectRange)
                 {
-                    FleeFrom(t.transform.position, false); // 避让模式
+                    FleeFrom(t.transform.position, false);
                     return;
                 }
             }
         }
 
-        // --- 优先级 3：基础生存逻辑 ---
+        // --- 优先级 3：基础生存 ---
         HandleBasicNeeds();
     }
 
@@ -114,30 +137,94 @@ public class DeerAI : MonoBehaviour
         }
     }
 
+    //private void FleeFrom(Vector3 dangerPos, bool isPanic)
+    //{
+    //    Vector3 fleeDir = (transform.position - dangerPos).normalized;
+    //    fleeDir.y = 0;
+
+    //    float speed = isPanic ? moveSpeed * fleeSpeedMultiplier : moveSpeed * 1.2f;
+
+    //    // 关键逻辑：如果是狮子靠近播 run，玩家靠近播 walk
+    //    string anim = isPanic ? "run" : "walk";
+
+    //    transform.position += fleeDir * speed * Time.deltaTime;
+
+    //    if (fleeDir != Vector3.zero)
+    //        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(fleeDir), 0.15f);
+
+    //    PlayAnimation(anim);
+    //    currentTargetPos = Vector3.zero; // 重置闲逛目标
+    //}
+    // 在类顶部加这个变量，用于记录平滑方向
+    private Vector3 currentMoveDir;
     private void FleeFrom(Vector3 dangerPos, bool isPanic)
     {
-        Vector3 fleeDir = (transform.position - dangerPos).normalized;
-        fleeDir.y = 0;
+        Vector3 idealFleeDir = (transform.position - dangerPos).normalized;
+        idealFleeDir.y = 0;
 
-        float speed = isPanic ? moveSpeed * fleeSpeedMultiplier : moveSpeed * 1.2f;
+        // 获取避障滑行方向
+        Vector3 targetDir = GetSlideDirection(idealFleeDir);
 
-        // 关键逻辑：如果是狮子靠近播 run，玩家靠近播 walk
-        string anim = isPanic ? "run" : "walk";
+        float speed = isPanic ? moveSpeed * fleeSpeedMultiplier : moveSpeed * 1.3f;
 
-        transform.position += fleeDir * speed * Time.deltaTime;
+        // --- 【修改】：不再修改 transform，而是设置目标速度 ---
+        targetVelocity = targetDir * speed;
 
-        if (fleeDir != Vector3.zero)
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(fleeDir), 0.15f);
+        // 转向依然可以通过 Transform 处理，这不会引起物理冲突
+        if (targetDir != Vector3.zero)
+        {
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(targetDir), 0.15f);
+        }
 
-        PlayAnimation(anim);
-        currentTargetPos = Vector3.zero; // 重置闲逛目标
+        PlayAnimation(isPanic ? "run" : "walk");
     }
 
+
+    /// <summary>
+    /// 终极避障：利用法线投影实现“贴墙滑行”
+    /// </summary>
+    private Vector3 GetSlideDirection(Vector3 idealDir)
+    {
+        if (Physics.SphereCast(transform.position + Vector3.up * 0.5f, 0.4f, idealDir, out RaycastHit hit, detectionDistance, obstacleLayer))
+        {
+            Vector3 slideDir = Vector3.ProjectOnPlane(idealDir, hit.normal).normalized;
+            slideDir.y = 0;
+
+            if (slideDir.sqrMagnitude < 0.01f)
+            {
+                return Quaternion.Euler(0, Random.value > 0.5f ? 90 : -90, 0) * idealDir;
+            }
+            return slideDir;
+        }
+        return idealDir;
+    }
+    //private void MoveTo(Vector3 target, bool isEating, float speed)
+    //{
+    //    float dist = Vector3.Distance(transform.position, target);
+    //    if (dist <= eatDistance)
+    //    {
+    //        if (isEating) Eat();
+    //        else StartCoroutine(WaitAtDestination());
+    //        return;
+    //    }
+
+    //    Vector3 dir = (target - transform.position).normalized;
+    //    dir.y = 0;
+    //    transform.position += dir * speed * Time.deltaTime;
+
+    //    if (dir != Vector3.zero)
+    //        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 0.1f);
+
+    //    PlayAnimation("walk");
+    //}
     private void MoveTo(Vector3 target, bool isEating, float speed)
     {
         float dist = Vector3.Distance(transform.position, target);
         if (dist <= eatDistance)
         {
+            // --- 【修改】：到达目的地，刹车 ---
+            targetVelocity = Vector3.zero;
+
             if (isEating) Eat();
             else StartCoroutine(WaitAtDestination());
             return;
@@ -145,12 +232,30 @@ public class DeerAI : MonoBehaviour
 
         Vector3 dir = (target - transform.position).normalized;
         dir.y = 0;
-        transform.position += dir * speed * Time.deltaTime;
+
+        if (!IsObstacleInFront(dir))
+        {
+            // --- 【修改】：前方无阻，设置移动速度 ---
+            targetVelocity = dir * speed;
+        }
+        else
+        {
+            // 前方有空气墙，刹车并换个地方逛
+            targetVelocity = Vector3.zero;
+            if (!isEating) PickNewWanderPos();
+        }
 
         if (dir != Vector3.zero)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 0.1f);
 
         PlayAnimation("walk");
+    }
+
+    // 探测前方是否有空气墙
+    private bool IsObstacleInFront(Vector3 direction)
+    {
+        float deerRadius = 0.5f;
+        return Physics.SphereCast(transform.position + Vector3.up * 1f, deerRadius, direction, out _, detectionDistance, obstacleLayer);
     }
 
     private void Eat()
@@ -181,7 +286,10 @@ public class DeerAI : MonoBehaviour
     private IEnumerator WaitAtDestination()
     {
         isWaiting = true;
+        // --- 【修改】：待机时确保完全停下 ---
+        targetVelocity = Vector3.zero;
         currentTargetPos = Vector3.zero;
+
         PlayAnimation("idle");
         yield return new WaitForSeconds(Random.Range(2f, 5f));
         isWaiting = false;
@@ -200,11 +308,8 @@ public class DeerAI : MonoBehaviour
     // 在 Scene 窗口画出感知圆圈，方便调试
     private void OnDrawGizmosSelected()
     {
-        // 画出玩家感知范围（蓝色）
         Gizmos.color = Color.blue;
         Gizmos.DrawWireSphere(transform.position, playerDetectRange);
-
-        // 画出掠食者感知范围（红色）
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, predatorDetectRange);
     }

@@ -466,13 +466,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 717be92345af78743b3577da6030c87f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  allGrassList: []
   grassPrefabs:
   - {fileID: 5392044469008384642, guid: e0adf790ee1c66d4ba7e88a04dec810d, type: 3}
   - {fileID: 8013185886648752113, guid: c64713bb77a5dbe4e8ceec5d87e915fd, type: 3}
   grassSpawnRadius: 20
+  deerProbability: 0.45
+  lionProbability: 0.15
+  tigerProbability: 0.15
   deerPrefab: {fileID: 3289873723203319073, guid: 7a2b442ab8d22e5499670497f911520a, type: 3}
-  herdSpawnProbability: 0.25
-  allGrassList: []
+  lionPrefab: {fileID: 5631179232291952964, guid: ffa33644d91dc324abad9af5036adb81, type: 3}
+  tigerPrefab: {fileID: 6946043152039814137, guid: 83ff6686ee52b8e49b9976af2ff1c516, type: 3}
 --- !u!1 &315104362
 GameObject:
   m_ObjectHideFlags: 0

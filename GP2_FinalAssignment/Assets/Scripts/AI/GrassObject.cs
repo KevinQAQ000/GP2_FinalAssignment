@@ -4,7 +4,7 @@ public class GrassObject : MonoBehaviour
 {
     private void Start()
     {
-        // 草刚长出来，赶紧去居委会登记
+        // 草刚长出来，去登记
         if (AIManager.Instance != null)
         {
             AIManager.Instance.RegisterGrass(this.transform);

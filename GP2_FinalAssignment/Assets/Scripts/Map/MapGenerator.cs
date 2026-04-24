@@ -426,7 +426,7 @@ public class MapGenerator: MonoBehaviour
     private List<MapChunkMapObjectModel> SpawnMapObject(Vector2Int chunkIndex)
     {
         // 使用种子来进行随机生成
-        Random.InitState(spawnSeed);
+        Random.InitState(spawnSeed + chunkIndex.x * 1000 + chunkIndex.y);
         List<MapChunkMapObjectModel> mapChunkObjectList = new List<MapChunkMapObjectModel>();
 
         int offsetX = chunkIndex.x * mapChunkSize;
