@@ -33,6 +33,15 @@ public class AIManager : MonoBehaviour
     public GameObject lionPrefab;
     public GameObject tigerPrefab;
 
+    [Header("群体数量设置")]
+    [Tooltip("一个鹿群最少和最多有几只鹿")]
+    public int minDeerCount = 2;
+    public int maxDeerCount = 4;
+
+    [Tooltip("一个兔群最少和最多有几只兔子")]
+    public int minRabbitCount = 5;  // 默认最低 5 只
+    public int maxRabbitCount = 12; // 默认最高 12 只
+
     private void Awake() => Instance = this;
 
     //private void Awake()
@@ -192,16 +201,19 @@ public class AIManager : MonoBehaviour
         anchorObj.transform.SetParent(parent);
         anchorObj.AddComponent<HerdGroup>();
 
-        int herdSize = Random.Range(3, 6); // 兔子一般比较能生，数量可以比鹿多一点
+        // 【修改这里】：用你设置的变量代替原本写死的 Random.Range(3, 6)
+        // 注意：Unity 的整数 Random.Range 最大值是不包含的，所以要 +1
+        int herdSize = Random.Range(minRabbitCount, maxRabbitCount + 1);
+
         for (int j = 0; j < herdSize; j++)
         {
-            Vector2 circle = Random.insideUnitCircle * 3f;
+            // 如果兔子变多了，把出生时的散开半径稍微调大一点，比如从 3f 调到 4f
+            Vector2 circle = Random.insideUnitCircle * 4f;
             Vector3 spawnPos = center + new Vector3(circle.x, 0, circle.y);
             GameObject rabbit = Instantiate(rabbitPrefab, spawnPos, Quaternion.identity);
             rabbit.transform.SetParent(parent);
 
-            // 因为你挂的是 DeerAI，所以直接获取 DeerAI 组件
-            DeerAI ai = rabbit.GetComponent<DeerAI>();
+            RabbitAI ai = rabbit.GetComponent<RabbitAI>();
             if (ai != null) ai.herdGroupAnchor = anchorObj.transform;
         }
     }

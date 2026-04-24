@@ -138,7 +138,7 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 1a17e58af5f15cf4896332b2eccb4d09, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 5337018731182340072}
+      addedObject: {fileID: 5858621204029260155}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 1a17e58af5f15cf4896332b2eccb4d09, type: 3}
       insertIndex: -1
       addedObject: {fileID: 936632824637963043}
@@ -207,7 +207,7 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 1a17e58af5f15cf4896332b2eccb4d09, type: 3}
   m_PrefabInstance: {fileID: 7400490488771378277}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &5337018731182340072
+--- !u!114 &5858621204029260155
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -216,26 +216,32 @@ MonoBehaviour:
   m_GameObject: {fileID: 7670398939842134324}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eafea1f9bdb6d8c4b8bc259657c9de66, type: 3}
+  m_Script: {fileID: 11500000, guid: aac3aa73308e5ff47b5a1f1dec2e0dea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 2
-  wanderRadius: 5
-  eatDistance: 0.5
+  moveSpeed: 3
+  wanderRadius: 10
+  eatDistance: 0.8
   hungerTimer: 0
-  hungerTimerMax: 10
-  playerDetectRange: 2
-  predatorDetectRange: 4
+  hungerTimerMax: 20
+  playerDetectRange: 3
+  predatorDetectRange: 12
   fleeSpeedMultiplier: 2.5
   threatLayer:
     serializedVersion: 2
     m_Bits: 64
+  enableBoids: 1
+  boidRadius: 4
+  separationWeight: 2.5
+  alignmentWeight: 1
+  cohesionWeight: 1.2
+  targetWeight: 3
   herdGroupAnchor: {fileID: 0}
   animator: {fileID: 936632824637963043}
   obstacleLayer:
     serializedVersion: 2
     m_Bits: 0
-  detectionDistance: 2
+  detectionDistance: 1.5
 --- !u!95 &936632824637963043
 Animator:
   serializedVersion: 7
