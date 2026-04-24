@@ -24,7 +24,6 @@ public class DeerAI : MonoBehaviour
     public Transform herdGroupAnchor;
     public Animator animator;
 
-    // 内部逻辑变量
     private Vector3 currentTargetPos;
     private Transform targetGrass;
     private bool isWaiting = false;
@@ -34,36 +33,17 @@ public class DeerAI : MonoBehaviour
     public LayerMask obstacleLayer;
     public float detectionDistance = 2.0f;
 
-    // --- 【物理规范化新增变量】 ---
-    private Rigidbody rb;
-    private Vector3 targetVelocity; // 大脑计算出的目标速度，交给腿（FixedUpdate）去执行
-
-    private void Awake()
-    {
-        // 获取刚体组件
-        rb = GetComponent<Rigidbody>();
-    }
+    // 用于平滑转向的内部变量
+    private Vector3 currentMoveDir;
 
     private void Update()
     {
-        // 1. 生存计时
         hungerTimer += Time.deltaTime;
 
-        // 2. 引用保护
         if (targetGrass == null) targetGrass = null;
         if (herdGroupAnchor == null) herdGroupAnchor = null;
 
-        // 3. 核心行为决策（相当于 AI 的大脑，只思考不走路）
         HandleAIBehavior();
-    }
-    private void FixedUpdate()
-    {
-        if (rb != null)
-        {
-            // 将大脑思考出的 targetVelocity 应用给刚体。
-            // 保持原本的 Y 轴速度（重力下落），只改变水平方向的速度
-            rb.linearVelocity = new Vector3(targetVelocity.x, rb.linearVelocity.y, targetVelocity.z);
-        }
     }
 
     private void HandleAIBehavior()
@@ -78,7 +58,6 @@ public class DeerAI : MonoBehaviour
             else return;
         }
 
-        // --- 优先级 1：检测掠食者 ---
         Collider[] threats = Physics.OverlapSphere(transform.position, predatorDetectRange, threatLayer);
         foreach (var t in threats)
         {
@@ -89,13 +68,11 @@ public class DeerAI : MonoBehaviour
             }
         }
 
-        // --- 优先级 2：检测玩家 ---
         foreach (var t in threats)
         {
             if (t.CompareTag("Player"))
             {
-                float dist = Vector3.Distance(transform.position, t.transform.position);
-                if (dist < playerDetectRange)
+                if (Vector3.Distance(transform.position, t.transform.position) < playerDetectRange)
                 {
                     FleeFrom(t.transform.position, false);
                     return;
@@ -103,17 +80,13 @@ public class DeerAI : MonoBehaviour
             }
         }
 
-        // --- 优先级 3：基础生存 ---
         HandleBasicNeeds();
     }
 
     private bool CheckPredatorThreat()
     {
         Collider[] threats = Physics.OverlapSphere(transform.position, predatorDetectRange, threatLayer);
-        foreach (var t in threats)
-        {
-            if (t.CompareTag("Predator")) return true;
-        }
+        foreach (var t in threats) if (t.CompareTag("Predator")) return true;
         return false;
     }
 
@@ -156,48 +129,33 @@ public class DeerAI : MonoBehaviour
     //    currentTargetPos = Vector3.zero; // 重置闲逛目标
     //}
     // 在类顶部加这个变量，用于记录平滑方向
-    private Vector3 currentMoveDir;
+    //private Vector3 currentMoveDir;
     private void FleeFrom(Vector3 dangerPos, bool isPanic)
     {
-        Vector3 idealFleeDir = (transform.position - dangerPos).normalized;
-        idealFleeDir.y = 0;
+        Vector3 idealDir = (transform.position - dangerPos).normalized;
+        idealDir.y = 0;
 
-        // 获取避障滑行方向
-        Vector3 targetDir = GetSlideDirection(idealFleeDir);
+        // 获得贴墙滑行的方向
+        Vector3 targetDir = GetSlideDirection(idealDir);
+
+        if (currentMoveDir == Vector3.zero) currentMoveDir = targetDir;
+
+        // 平滑转向缓冲，防止抽搐
+        currentMoveDir = Vector3.Slerp(currentMoveDir, targetDir, Time.deltaTime * 8f);
+        currentMoveDir.y = 0; // 绝对锁死 Y 轴，防止飞天
 
         float speed = isPanic ? moveSpeed * fleeSpeedMultiplier : moveSpeed * 1.3f;
 
-        // --- 【修改】：不再修改 transform，而是设置目标速度 ---
-        targetVelocity = targetDir * speed;
+        // --- 恢复使用 Transform 位移 ---
+        transform.position += currentMoveDir * speed * Time.deltaTime;
 
-        // 转向依然可以通过 Transform 处理，这不会引起物理冲突
-        if (targetDir != Vector3.zero)
-        {
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(targetDir), 0.15f);
-        }
+        if (currentMoveDir != Vector3.zero)
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(currentMoveDir), 0.15f);
 
         PlayAnimation(isPanic ? "run" : "walk");
     }
 
 
-    /// <summary>
-    /// 终极避障：利用法线投影实现“贴墙滑行”
-    /// </summary>
-    private Vector3 GetSlideDirection(Vector3 idealDir)
-    {
-        if (Physics.SphereCast(transform.position + Vector3.up * 0.5f, 0.4f, idealDir, out RaycastHit hit, detectionDistance, obstacleLayer))
-        {
-            Vector3 slideDir = Vector3.ProjectOnPlane(idealDir, hit.normal).normalized;
-            slideDir.y = 0;
-
-            if (slideDir.sqrMagnitude < 0.01f)
-            {
-                return Quaternion.Euler(0, Random.value > 0.5f ? 90 : -90, 0) * idealDir;
-            }
-            return slideDir;
-        }
-        return idealDir;
-    }
     //private void MoveTo(Vector3 target, bool isEating, float speed)
     //{
     //    float dist = Vector3.Distance(transform.position, target);
@@ -222,40 +180,56 @@ public class DeerAI : MonoBehaviour
         float dist = Vector3.Distance(transform.position, target);
         if (dist <= eatDistance)
         {
-            // --- 【修改】：到达目的地，刹车 ---
-            targetVelocity = Vector3.zero;
-
+            currentMoveDir = Vector3.zero;
             if (isEating) Eat();
             else StartCoroutine(WaitAtDestination());
             return;
         }
 
-        Vector3 dir = (target - transform.position).normalized;
-        dir.y = 0;
+        Vector3 idealDir = (target - transform.position).normalized;
+        idealDir.y = 0;
 
-        if (!IsObstacleInFront(dir))
+        // 闲逛撞墙直接换点
+        if (!isEating && IsObstacleInFront(idealDir))
         {
-            // --- 【修改】：前方无阻，设置移动速度 ---
-            targetVelocity = dir * speed;
-        }
-        else
-        {
-            // 前方有空气墙，刹车并换个地方逛
-            targetVelocity = Vector3.zero;
-            if (!isEating) PickNewWanderPos();
+            currentMoveDir = Vector3.zero;
+            PickNewWanderPos();
+            return;
         }
 
-        if (dir != Vector3.zero)
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 0.1f);
+        // 正常移动使用贴墙滑行
+        Vector3 targetDir = GetSlideDirection(idealDir);
+        if (currentMoveDir == Vector3.zero) currentMoveDir = targetDir;
+        currentMoveDir = Vector3.Slerp(currentMoveDir, targetDir, Time.deltaTime * 8f);
+        currentMoveDir.y = 0;
+
+        // --- 恢复使用 Transform 位移 ---
+        transform.position += currentMoveDir * speed * Time.deltaTime;
+
+        if (currentMoveDir != Vector3.zero)
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(currentMoveDir), 0.1f);
 
         PlayAnimation("walk");
     }
 
-    // 探测前方是否有空气墙
-    private bool IsObstacleInFront(Vector3 direction)
+    private bool IsObstacleInFront(Vector3 dir)
     {
-        float deerRadius = 0.5f;
-        return Physics.SphereCast(transform.position + Vector3.up * 1f, deerRadius, direction, out _, detectionDistance, obstacleLayer);
+        return Physics.SphereCast(transform.position + Vector3.up * 0.5f, 0.4f, dir, out _, detectionDistance, obstacleLayer);
+    }
+
+    private Vector3 GetSlideDirection(Vector3 idealDir)
+    {
+        if (Physics.SphereCast(transform.position + Vector3.up * 0.5f, 0.4f, idealDir, out RaycastHit hit, detectionDistance, obstacleLayer))
+        {
+            Vector3 slideDir = Vector3.ProjectOnPlane(idealDir, hit.normal).normalized;
+            slideDir.y = 0;
+            if (slideDir.sqrMagnitude < 0.01f)
+            {
+                return Quaternion.Euler(0, Random.value > 0.5f ? 90 : -90, 0) * idealDir;
+            }
+            return slideDir;
+        }
+        return idealDir;
     }
 
     private void Eat()
@@ -272,8 +246,7 @@ public class DeerAI : MonoBehaviour
 
     private void FindNearestGrass()
     {
-        if (AIManager.Instance != null)
-            targetGrass = AIManager.Instance.GetNearestGrass(transform.position);
+        if (AIManager.Instance != null) targetGrass = AIManager.Instance.GetNearestGrass(transform.position);
     }
 
     private void PickNewWanderPos()
@@ -286,10 +259,8 @@ public class DeerAI : MonoBehaviour
     private IEnumerator WaitAtDestination()
     {
         isWaiting = true;
-        // --- 【修改】：待机时确保完全停下 ---
-        targetVelocity = Vector3.zero;
+        currentMoveDir = Vector3.zero;
         currentTargetPos = Vector3.zero;
-
         PlayAnimation("idle");
         yield return new WaitForSeconds(Random.Range(2f, 5f));
         isWaiting = false;

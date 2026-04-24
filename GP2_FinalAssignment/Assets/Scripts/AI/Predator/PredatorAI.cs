@@ -6,31 +6,31 @@ public class PredatorAI : MonoBehaviour
 {
     public enum PredatorType { Lion, Tiger }
 
-    [Header("��������")]
+    [Header("身份设置")]
     public PredatorType identity;
 
-    [Header("�������")]
+    [Header("生存参数")]
     public float hungerTimer = 0f;
     public float hungerThreshold = 30f;
     public float fullDuration = 100f;
 
-    [Header("��̬����")]
+    [Header("动态属性")]
     public float detectRange;
     public float sneakRange;
     public float chaseRange = 6f;
     public float attackRange = 1.5f;
 
-    [Header("�ƶ��ٶ�")]
+    [Header("移动速度")]
     public float walkSpeed = 2f;
     public float sneakSpeed = 1.2f;
     public float runSpeed;
 
-    [Header("Ѳ������")]
-    public float patrolRadius = 15f;    // Ѳ�Ӱ뾶
-    private Vector3 patrolTarget;       // ��ǰѲ�ӵ�Ŀ�ĵ�
-    private bool isWaiting = false;     // �Ƿ���Ŀ�ĵض���
+    [Header("巡视设置")]
+    public float patrolRadius = 15f;
+    private Vector3 patrolTarget;
+    private bool isWaiting = false;
 
-    [Header("����")]
+    [Header("引用")]
     public Animator animator;
     public LayerMask preyLayer;
 
@@ -38,23 +38,17 @@ public class PredatorAI : MonoBehaviour
     private bool isEating = false;
     private string currentAnim = "";
 
-    [Header("��������")]
-    public LayerMask obstacleLayer;       // ����ǽ�Ĳ㼶
-    public float detectionDistance = 1.5f; // ����̽����� (������΢����һ�㣬����1.5)
+    [Header("避障设置")]
+    public LayerMask obstacleLayer;
+    public float detectionDistance = 1.5f;
 
-    // --- �������淶������������ ---
-    private Rigidbody rb;
-    private Vector3 targetVelocity; // ���Լ������Ŀ���ٶȣ������ȣ�FixedUpdate��ȥִ��
-
-    private void Awake()
-    {
-        rb = GetComponent<Rigidbody>();
-    }
+    // 用于平滑转向的内部变量
+    private Vector3 currentMoveDir;
 
     private void Start()
     {
         ApplyIdentitySettings();
-        PickNewPatrolPoint(); // ��ʼѡһ��Ѳ�ӵ�
+        PickNewPatrolPoint();
     }
 
     private void ApplyIdentitySettings()
@@ -75,7 +69,6 @@ public class PredatorAI : MonoBehaviour
 
         hungerTimer += Time.deltaTime;
 
-        // ���ߺ���
         if (hungerTimer < hungerThreshold)
         {
             PatrolTerritory();
@@ -86,18 +79,6 @@ public class PredatorAI : MonoBehaviour
         }
     }
 
-    private void FixedUpdate()
-    {
-        if (rb != null && !isEating)
-        {
-            // ��Ŀ���ٶ�Ӧ�ø����壬���� Y ������
-            rb.linearVelocity = new Vector3(targetVelocity.x, rb.linearVelocity.y, targetVelocity.z);
-        }
-    }
-
-    /// <summary>
-    /// ���Ѳ���߼�
-    /// </summary>
     private void PatrolTerritory()
     {
         if (isWaiting) return;
@@ -106,8 +87,7 @@ public class PredatorAI : MonoBehaviour
 
         if (distToTarget < 1f)
         {
-            // ����Ѳ�ӵ㣬ɲ������Ϣ
-            targetVelocity = Vector3.zero;
+            currentMoveDir = Vector3.zero;
             StartCoroutine(WaitAtPatrolPoint());
         }
         else
@@ -119,9 +99,8 @@ public class PredatorAI : MonoBehaviour
     private IEnumerator WaitAtPatrolPoint()
     {
         isWaiting = true;
-        targetVelocity = Vector3.zero; // ȷ���ȴ�ʱ��ȫֹͣ
         PlayAnimation("idle");
-        yield return new WaitForSeconds(Random.Range(3f, 7f)); // ����ر�Ե�۲�һ���
+        yield return new WaitForSeconds(Random.Range(3f, 7f));
         PickNewPatrolPoint();
         isWaiting = false;
     }
@@ -137,7 +116,7 @@ public class PredatorAI : MonoBehaviour
         if (targetPrey == null)
         {
             FindPrey();
-            PatrolTerritory(); // û�ҵ�����ǰ������һ��Ѳ��һ����
+            PatrolTerritory();
             return;
         }
 
@@ -149,7 +128,7 @@ public class PredatorAI : MonoBehaviour
         }
         else if (dist <= attackRange)
         {
-            targetVelocity = Vector3.zero; // ׼��������ɲ��
+            currentMoveDir = Vector3.zero;
             AttackPrey();
         }
         else if (dist <= chaseRange)
@@ -183,8 +162,7 @@ public class PredatorAI : MonoBehaviour
         foreach (var col in cols)
         {
             Vector3 dirToPrey = (col.transform.position - transform.position).normalized;
-
-            // �������߼������ (��ǽ��͸��)
+            // 视线遮挡检测
             if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dirToPrey, detectRange, obstacleLayer))
             {
                 targetPrey = col.transform;
@@ -211,28 +189,33 @@ public class PredatorAI : MonoBehaviour
         Vector3 idealDir = (pos - transform.position).normalized;
         idealDir.y = 0;
 
-        // ����Ǵ����й�(walk)״̬��ǰ����ǽ��û��Ҫɵɵ����ǽ���У�ֱ�ӻ���Ŀ��������
-        if (anim == "walk" && Physics.SphereCast(transform.position + Vector3.up * 0.5f, 0.5f, idealDir, out _, detectionDistance, obstacleLayer))
+        // 如果巡逻时撞墙，直接换个目标点
+        if (anim == "walk" && Physics.SphereCast(transform.position + Vector3.up * 0.5f, 0.4f, idealDir, out _, detectionDistance, obstacleLayer))
         {
-            targetVelocity = Vector3.zero;
+            currentMoveDir = Vector3.zero;
             PickNewPatrolPoint();
             return;
         }
 
-        // ��ɱ/Ǳ��ʱ��ʹ�ø߼���ǽ���б���
+        // 猎杀时，使用贴墙滑行
         Vector3 targetDir = GetSlideDirection(idealDir);
 
-        // --- ���ĸĶ������ٸ� Transform����Ŀ���ٶ� ---
-        targetVelocity = targetDir * speed;
+        if (currentMoveDir == Vector3.zero) currentMoveDir = targetDir;
 
-        if (targetDir != Vector3.zero)
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(targetDir), 0.15f);
+        currentMoveDir = Vector3.Slerp(currentMoveDir, targetDir, Time.deltaTime * 8f);
+        currentMoveDir.y = 0;
+
+        // --- 恢复使用 Transform 位移 ---
+        transform.position += currentMoveDir * speed * Time.deltaTime;
+
+        if (currentMoveDir != Vector3.zero)
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(currentMoveDir), 0.15f);
 
         PlayAnimation(anim);
     }
     private Vector3 GetSlideDirection(Vector3 idealDir)
     {
-        if (Physics.SphereCast(transform.position + Vector3.up * 1f, 0.5f, idealDir, out RaycastHit hit, detectionDistance, obstacleLayer))
+        if (Physics.SphereCast(transform.position + Vector3.up * 0.5f, 0.4f, idealDir, out RaycastHit hit, detectionDistance, obstacleLayer))
         {
             Vector3 slideDir = Vector3.ProjectOnPlane(idealDir, hit.normal).normalized;
             slideDir.y = 0;
@@ -264,16 +247,14 @@ public class PredatorAI : MonoBehaviour
     private IEnumerator EatRoutine()
     {
         isEating = true;
-        targetVelocity = Vector3.zero; // �Է�ʱ�����ٶ�
-        if (rb != null) rb.linearVelocity = Vector3.zero; // ˫�ر���
-
+        currentMoveDir = Vector3.zero;
         PlayAnimation("eat");
         hungerTimer = -fullDuration;
         yield return new WaitForSeconds(5f);
-
         isEating = false;
-        PickNewPatrolPoint(); // ����ѡһ���µ�Ѳ��
+        PickNewPatrolPoint();
     }
+
     private void PlayAnimation(string name)
     {
         if (animator != null && currentAnim != name)
@@ -283,7 +264,6 @@ public class PredatorAI : MonoBehaviour
         }
     }
 
-    // �ڱ༭���ﻭ����ط�Χ���������
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.yellow;

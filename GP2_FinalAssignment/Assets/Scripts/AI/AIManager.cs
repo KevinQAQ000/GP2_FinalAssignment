@@ -20,6 +20,8 @@ public class AIManager : MonoBehaviour
     [Header("生态分布概率 (0~1)")]
     [Tooltip("刷出鹿群的概率")]
     public float deerProbability = 0.2f;
+    [Tooltip("刷出兔群的概率")]
+    public float rabbitProbability = 0.25f;
     [Tooltip("刷出狮子的概率")]
     public float lionProbability = 0.05f;
     [Tooltip("刷出老虎的概率")]
@@ -27,6 +29,7 @@ public class AIManager : MonoBehaviour
 
     [Header("预制体引用")]
     public GameObject deerPrefab;
+    public GameObject rabbitPrefab;
     public GameObject lionPrefab;
     public GameObject tigerPrefab;
 
@@ -60,6 +63,13 @@ public class AIManager : MonoBehaviour
         if (Random.value < deerProbability)
         {
             SpawnDeers(chunkCenter, chunkParent);
+        }
+
+        if (Random.value < rabbitProbability)
+        {
+            // 给兔子一个偏移，防止和鹿叠在一起
+            Vector3 rabbitCenter = chunkCenter + new Vector3(-3f, 0, -3f);
+            SpawnRabbits(rabbitCenter, chunkParent);
         }
 
         // 2. 独立判定狮子 (注意：这里必须用 if，绝对不能用 else if)
@@ -173,6 +183,29 @@ public class AIManager : MonoBehaviour
         }
     }
 
+    private void SpawnRabbits(Vector3 center, Transform parent)
+    {
+        if (rabbitPrefab == null) return;
+
+        GameObject anchorObj = new GameObject("RabbitHerd_Dynamic");
+        anchorObj.transform.position = center;
+        anchorObj.transform.SetParent(parent);
+        anchorObj.AddComponent<HerdGroup>();
+
+        int herdSize = Random.Range(3, 6); // 兔子一般比较能生，数量可以比鹿多一点
+        for (int j = 0; j < herdSize; j++)
+        {
+            Vector2 circle = Random.insideUnitCircle * 3f;
+            Vector3 spawnPos = center + new Vector3(circle.x, 0, circle.y);
+            GameObject rabbit = Instantiate(rabbitPrefab, spawnPos, Quaternion.identity);
+            rabbit.transform.SetParent(parent);
+
+            // 因为你挂的是 DeerAI，所以直接获取 DeerAI 组件
+            DeerAI ai = rabbit.GetComponent<DeerAI>();
+            if (ai != null) ai.herdGroupAnchor = anchorObj.transform;
+        }
+    }
+
 
     // --- 草的管理逻辑 ---
 
@@ -181,13 +214,30 @@ public class AIManager : MonoBehaviour
 
     public Transform GetNearestGrass(Vector3 aiPosition)
     {
-        allGrassList.RemoveAll(g => g == null);
+        // 1. 安全清理列表：使用倒序循环删除已经被吃掉的草（彻底解决报错）
+        for (int i = allGrassList.Count - 1; i >= 0; i--)
+        {
+            // Unity 重载了 ==，如果物体被 Destroy，这里会判定为 null
+            if (allGrassList[i] == null)
+            {
+                allGrassList.RemoveAt(i);
+            }
+        }
+
         Transform nearest = null;
         float minDistance = float.MaxValue;
+
+        // 2. 遍历找最近的草
         foreach (var grass in allGrassList)
         {
+            if (grass == null) continue; // 终极安全锁，防止遍历中途出意外
+
             float dist = Vector3.Distance(aiPosition, grass.position);
-            if (dist < minDistance) { minDistance = dist; nearest = grass; }
+            if (dist < minDistance)
+            {
+                minDistance = dist;
+                nearest = grass;
+            }
         }
         return nearest;
     }
