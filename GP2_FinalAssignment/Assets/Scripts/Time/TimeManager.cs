@@ -58,6 +58,15 @@ public class TimeManager : MonoBehaviour
 
     [SerializeField, Range(0, 30)] private float timeScale = 1;
 
+    [Header("夜晚生态发光设置")]
+    [SerializeField] private Material[] grassMaterials; // 修改为数组，支持多种材质
+
+    [ColorUsage(true, true)]
+    [SerializeField] private Color nightGlowColor = new Color(0, 1f, 0.5f, 1f);
+
+    [SerializeField, Range(0f, 5f)] private float maxGlowIntensity = 2.5f;
+    [SerializeField] private float glowThreshold = 0.4f;// 夜晚开始发光的时间比例
+
     private void Awake()
     {
         Instance = this;
@@ -122,6 +131,50 @@ public class TimeManager : MonoBehaviour
         mainLight.intensity = intensity;
         // 设置环境光的亮度
         RenderSettings.ambientIntensity = intensity;
+
+        // --- 在这里调用更新发光的方法 ---
+        UpdateGrassGlow(intensity);
+    }
+    /// <summary>
+    /// 根据当前阳光强度，动态调整草的发光
+    /// </summary>
+    /// <summary>
+    /// 循环处理所有草的材质发光
+    /// </summary>
+    private void UpdateGrassGlow(float currentSunIntensity)
+    {
+        if (grassMaterials == null || grassMaterials.Length == 0) return;
+
+        // 计算发光比例
+        float glowRatio = 0f;
+        if (currentSunIntensity < glowThreshold)
+        {
+            glowRatio = 1f - (currentSunIntensity / glowThreshold);
+        }
+
+        // 计算最终颜色
+        Color finalEmissionColor = nightGlowColor * maxGlowIntensity * glowRatio;
+
+        // 遍历数组，修改所有材质
+        foreach (Material mat in grassMaterials)
+        {
+            if (mat != null)
+            {
+                mat.EnableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", finalEmissionColor);
+            }
+        }
     }
 
+    private void OnDisable()
+    {
+        // 退出时清理所有材质，防止编辑器残留发光
+        if (grassMaterials != null)
+        {
+            foreach (Material mat in grassMaterials)
+            {
+                if (mat != null) mat.SetColor("_EmissionColor", Color.black);
+            }
+        }
+    }
 }

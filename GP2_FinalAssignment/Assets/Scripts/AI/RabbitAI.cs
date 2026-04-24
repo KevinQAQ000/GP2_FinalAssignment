@@ -66,6 +66,7 @@ public class RabbitAI : MonoBehaviour
         Collider[] threats = Physics.OverlapSphere(transform.position, predatorDetectRange, threatLayer);
         foreach (var t in threats)
         {
+            if (t == null) continue; // 【新增防报错锁】：无视被销毁的幽灵
             if (t.CompareTag("Predator"))
             {
                 FleeFrom(t.transform.position, true);
@@ -75,6 +76,7 @@ public class RabbitAI : MonoBehaviour
 
         foreach (var t in threats)
         {
+            if (t == null) continue; // 【新增防报错锁】
             if (t.CompareTag("Player"))
             {
                 if (Vector3.Distance(transform.position, t.transform.position) < playerDetectRange)
@@ -91,7 +93,11 @@ public class RabbitAI : MonoBehaviour
     private bool CheckPredatorThreat()
     {
         Collider[] threats = Physics.OverlapSphere(transform.position, predatorDetectRange, threatLayer);
-        foreach (var t in threats) if (t.CompareTag("Predator")) return true;
+        foreach (var t in threats)
+        {
+            if (t == null) continue; // 【新增防报错锁】
+            if (t.CompareTag("Predator")) return true;
+        }
         return false;
     }
 
@@ -186,6 +192,7 @@ public class RabbitAI : MonoBehaviour
         Collider[] neighbors = Physics.OverlapSphere(transform.position + Vector3.up * raycastHeight, boidRadius);
         foreach (var col in neighbors)
         {
+            if (col == null) continue; // 【新增防报错锁：这是最容易触发报错的地方】
             if (col.gameObject == this.gameObject) continue;
 
             RabbitAI otherRabbit = col.GetComponent<RabbitAI>();

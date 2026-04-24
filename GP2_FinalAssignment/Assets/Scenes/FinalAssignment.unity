@@ -1461,6 +1461,12 @@ MonoBehaviour:
     sunRotation: {x: 180, y: 90, z: 0}
     sunQuaternion: {x: 0.70710677, y: -0.00000003090862, z: -0.70710677, w: -0.00000003090862}
   timeScale: 1
+  grassMaterials:
+  - {fileID: -6538903991835684241, guid: c52bf980310c4854faa38805e57d36ee, type: 3}
+  - {fileID: -6538903991835684241, guid: 383df352b735eb449adb61f2a40a2f46, type: 3}
+  nightGlowColor: {r: 0, g: 1, b: 0.9398174, a: 1}
+  maxGlowIntensity: 5
+  glowThreshold: 0.5
 --- !u!4 &950324024
 Transform:
   m_ObjectHideFlags: 0

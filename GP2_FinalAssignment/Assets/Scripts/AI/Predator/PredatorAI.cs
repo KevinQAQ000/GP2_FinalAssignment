@@ -161,6 +161,8 @@ public class PredatorAI : MonoBehaviour
         Collider[] cols = Physics.OverlapSphere(transform.position, detectRange, preyLayer);
         foreach (var col in cols)
         {
+            if (col == null) continue; // 【新增防报错锁】：防止扫到刚被别的狮子吃掉的幽灵兔子
+
             Vector3 dirToPrey = (col.transform.position - transform.position).normalized;
             // 视线遮挡检测
             if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dirToPrey, detectRange, obstacleLayer))
