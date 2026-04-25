@@ -9,12 +9,12 @@ public class MapGeneratorEditor : Editor
         // Draw the default Inspector content.
         DrawDefaultInspector();
 
-        MapGenerator script = (MapGenerator)target;// Get a reference to the MapGenerator script
+        MapGenerator script = (MapGenerator)target;//Get a reference to the MapGenerator script
 
         // Draw button
         if (GUILayout.Button("Generate Map"))
         {
-            script.GenerateMapData();// Call the GenerateMap method when the button is clicked
+            script.GenerateMapData();//Call the GenerateMap method when the button is clicked
         }
 
         //if (GUILayout.Button("TestVertex"))

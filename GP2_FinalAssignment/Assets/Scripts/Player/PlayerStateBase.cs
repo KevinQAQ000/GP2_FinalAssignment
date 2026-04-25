@@ -2,27 +2,29 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-// 【修复1】：删掉 using JKFrame; 这一行！
-
 /// <summary>
-/// 玩家状态基类
-/// 抽象出所有玩家状态所需要共同 字段、函数等
+/// Base class for player states
+/// Abstracts common fields and functions required by all player states
 /// </summary>
 public class PlayerStateBase : StateBase
 {
-    protected Player_Controller player;
+    protected Player_Controller player; //Player controller reference
 
+    //This is an override function. The base class StateBase has an Init function, 
+    //and we override it to adapt to the specific requirements of player states.
+    //The purpose of the Init function is to initialize the state and assign ownership.
     public override void Init(IStateMachineOwner owner, int stateType, StateMachine stateMachine)
     {
-        base.Init(owner, stateType, stateMachine);
-        player = owner as Player_Controller;
+        base.Init(owner, stateType, stateMachine); //Call the base Init to ensure parent initialization logic is executed
+        player = owner as Player_Controller; //Cast owner to Player_Controller and assign it to the player field, allowing access to its properties and methods within the state
     }
 
     /// <summary>
-    /// 播放动画
+    /// Plays an animation
     /// </summary>
-    protected void PlayAnimation(string animationName, float fixedTime = 0.25f)
+    protected void PlayAnimation(string animationName, float fixedTime = 0.25f) //This function plays an animation where animationName is the state name and fixedTime is the crossfade duration (defaulting to 0.25s)
     {
+        //Call CrossFadeInFixedTime on the player controller's animator to transition to the specified animation state over a fixed duration
         player.animator.CrossFadeInFixedTime(animationName, fixedTime);
     }
 }

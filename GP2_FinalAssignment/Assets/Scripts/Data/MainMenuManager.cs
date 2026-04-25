@@ -1,74 +1,72 @@
 using UnityEngine;
-using UnityEngine.UI; // 控制UI必备
-using UnityEngine.SceneManagement; // 切换场景必备
-using System.IO; // 读写文件必备
+using UnityEngine.UI; //Essential for UI control
+using UnityEngine.SceneManagement; //Essential for scene switching
+using System.IO; //Essential for file read/write
 
 public class MainMenuManager : MonoBehaviour
 {
-    [Header("面板引用")]
-    public GameObject settingsPanel;
+    [Header("Panel References")]
+    public GameObject settingsPanel;//Assigned in the inspector, hidden by default
 
-    [Header("输入框引用")]
-    // 注意：如果你用的是 TextMeshPro 的输入框，这里可能需要改成 TMPro.TMP_InputField
+    [Header("Input Field References")]
     public TMPro.TMP_InputField mapSizeInput;
     public TMPro.TMP_InputField mapSeedInput;
     public TMPro.TMP_InputField spawnSeedInput;
     public Slider marshLimitSlider;
 
-    [Header("按钮引用")]
+    [Header("Button References")]
     public Button continueButton;
 
-    private string savePath;
+    private string savePath;//Absolute path to the save file, configured in Awake
 
     private void Awake()
     {
-        // 设定存档文件的绝对路径（存在电脑的隐藏AppData文件夹里）
+        //Set absolute path for save file, stored in the computer's hidden AppData folder
         savePath = Application.persistentDataPath + "/gamesave.json";
 
-        // 智能判断：如果硬盘里没有存档文件，就把“继续游戏”按钮变灰点不动
+        //If no save file exists on disk, gray out the "Continue" button and make it non-interactable
         continueButton.interactable = File.Exists(savePath);
     }
 
-    // --- 下面是给按钮绑定的点击事件 ---
-
-    // 1. 点击“新建游戏”按钮时执行
+    //Button bound click events
+    //Executed when the "New Game" button is clicked
     public void OnClickNewGame()
     {
-        settingsPanel.SetActive(true); // 让隐藏的设置面板弹出来
+        settingsPanel.SetActive(true); //Pop up the hidden settings panel
     }
 
-    // 2. 在设置面板里点击“开始生成”时执行
+    //Executed when "Start Generation" is clicked in the settings panel
     public void OnClickStartNewGame()
     {
-        // 第一步：把我们刚才写的“填空表”拿出来
+        //Store the data filled in the settings panel into a data object
         SaveData newData = new SaveData();
 
-        // 把玩家在输入框里敲的字（text）转换成整数（int.Parse），填进表里
-        // 加个安全判断，万一玩家没填，就给个默认值
+        //Convert the player's input (text) into integers (int.Parse) and fill the object
+        //Safety check: provide default values if the input fields are empty
         newData.mapSize = string.IsNullOrEmpty(mapSizeInput.text) ? 2 : int.Parse(mapSizeInput.text);
         newData.mapSeed = string.IsNullOrEmpty(mapSeedInput.text) ? 123 : int.Parse(mapSeedInput.text);
         newData.spawnSeed = string.IsNullOrEmpty(spawnSeedInput.text) ? 456 : int.Parse(spawnSeedInput.text);
         newData.marshLimit = marshLimitSlider.value;
 
-        // 第二步：把填好的表翻译成 Json 文本，存入电脑硬盘
+        //Serialize the filled object into Json text and save it to the disk
         string json = JsonUtility.ToJson(newData);
         File.WriteAllText(savePath, json);
 
-        // 第三步：切换到真正的游戏场景（参数 1 代表你游戏场景的编号）
+        //Switch to the actual game scene (index 1 represents your game scene build index)
         SceneManager.LoadScene(1);
     }
 
-    // 3. 点击“继续游戏”按钮时执行
+    //Executed when the "Continue" button is clicked
     public void OnClickContinue()
     {
-        // 直接进游戏场景，读取工作交给游戏场景里的 MapManager 去做
+        //Directly enter the game scene; the loading task is handled by the MapManager in the game scene
         SceneManager.LoadScene(1);
     }
 
-    // 4. 点击“退出”按钮时执行
+    //Executed when the "Exit" button is clicked
     public void OnClickExit()
     {
         Application.Quit();
-        Debug.Log("退出了游戏"); // 在编辑器里测试时只会输出这句话
+        Debug.Log("Exited the game"); //Only prints this message when testing in the editor
     }
 }

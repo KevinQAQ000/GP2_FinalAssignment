@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 场景物品生成配置文件 (ScriptableObject)
+/// Scene item generation configuration file (ScriptableObject)
 /// </summary>
 [CreateAssetMenu(fileName = "Scene item generation", menuName = "Config/Scene Item Configuration Table")]
 public class MapConfig : ScriptableObject
 {
     [Header("List of generation rules for different terrains")]
-    public List<TerrainSpawnRule> spawnRules = new List<TerrainSpawnRule>();
+    public List<TerrainSpawnRule> spawnRules = new List<TerrainSpawnRule>();//List of generation rules for different terrain types
 }
 
 
@@ -17,23 +17,23 @@ public class MapConfig : ScriptableObject
 [Serializable]
 public class TerrainSpawnRule
 {
-    [Tooltip("指定在哪种地形上生成物品")]
-    public MapGrid.MapVertexType terrainType;
+    [Tooltip("Specify which terrain type to spawn items on")]
+    public MapGrid.MapVertexType terrainType;//Terrain type
 
-    [Header("该地形下的物品生成池")]
-    public List<MapObjectSpawnConfigModel> spawnModels = new List<MapObjectSpawnConfigModel>();
+    [Header("Item spawn pool for this terrain")]
+    public List<MapObjectSpawnConfigModel> spawnModels = new List<MapObjectSpawnConfigModel>();//List of item spawn configurations
 }
 
 [Serializable]
 public class MapObjectSpawnConfigModel
 {
-    [Header("是否为空 (勾选代表在这个概率下不生成任何东西)")]
-    public bool isEmpty = false;
+    [Header("Is Empty (Check this to spawn nothing under this probability)")]
+    public bool isEmpty = false;//Whether to spawn nothing
 
-    [Tooltip("要生成的 3D 模型预制体")]
-    public GameObject prefab;
+    [Tooltip("The 3D model prefab to be spawned")]
+    public GameObject prefab;//Item prefab to spawn
 
-    [Header("生成概率 (如填写 30 代表 30%)")]
+    [Header("Spawn Probability (e.g., 30 means 30%)")]
     [Range(0, 100)]
-    public int probability;
+    public int probability;//Spawn probability
 }

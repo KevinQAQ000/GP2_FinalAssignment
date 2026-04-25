@@ -4,18 +4,20 @@ public class GrassObject : MonoBehaviour
 {
     private void Start()
     {
-        // 草刚长出来，去登记
+        //Grass just spawned, register it
         if (AIManager.Instance != null)
         {
+            //Register grass Transform to AI Manager for system queries and management
             AIManager.Instance.RegisterGrass(this.transform);
         }
     }
 
     private void OnDestroy()
     {
-        // 草被销毁（被吃掉或者退出游戏）时注销
+        //Unregister when grass is destroyed (eaten or game exit)
         if (AIManager.Instance != null)
         {
+            //Unregister grass Transform from AI Manager to prevent querying non-existent objects
             AIManager.Instance.UnregisterGrass(this.transform);
         }
     }

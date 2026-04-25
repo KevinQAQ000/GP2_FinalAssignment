@@ -1,104 +1,108 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using System.IO;// 读写文件必备
+using System.IO;//Essential for file read/write
 
 public class MapManager : MonoBehaviour
 {
-    // 地图尺寸
-    public int mapSize;        // 一行或者一列有多少个地图块
-    public int mapChunkSize;   // 一个地图块有多少个格子
-    public float cellSize;     // 一个格子多少米
+    //Map dimensions
+    public int mapSize;        //Number of map chunks in a row or column
+    public int mapChunkSize;   //Number of grid cells in one map chunk
+    public float cellSize;     //Meters per grid cell
 
-    // 地图的随机参数
-    public float noiseLacunarity;  // 噪音间隙
-    public int mapSeed;            // 地图种子
-    public int spawnSeed;          // 随时地图对象的种子
-    public float marshLimit;       // 沼泽的边界
+    //Map randomization parameters
+    public float noiseLacunarity;  //Noise lacunarity
+    public int mapSeed;            //Map seed
+    public int spawnSeed;          //Seed for random map objects
+    public float marshLimit;       //Boundary for marshes
 
-    // 地图的美术资源
-    public Material mapMaterial;
-    public Texture2D forestTexutre;
-    public Texture2D[] marshTextures;
-    public MapConfig mapConfig;   //地图配置
+    //Map art resources
+    public Material mapMaterial;//Map material
+    public Texture2D forestTexutre;//Forest texture
+    public Texture2D[] marshTextures;//Marsh textures
+    public MapConfig mapConfig;   //Map configuration
 
-    private MapGenerator mapGenerator;
-    public int viewDinstance;       // 玩家可视距离，单位是Chunk
-    public Transform viewer;        // 观察者
-    private Vector3 lastViewerPos = Vector3.one * -1;
-    public Dictionary<Vector2Int, MapChunkController> mapChunkDic;  // 全部已有的地图块
+    private MapGenerator mapGenerator;//Map generator
+    public int viewDinstance;       //Player view distance in Chunks
+    public Transform viewer;        //Viewer (usually the player)
+    private Vector3 lastViewerPos = Vector3.one * -1;//Viewer position in last frame. Initialized to an unlikely coordinate to ensure a refresh at start.
+    public Dictionary<Vector2Int, MapChunkController> mapChunkDic;  //All existing map chunks
 
-    public float updateChunkTime = 1f;
-    private bool canUpdateChunk = true;
-    private float mapSizeOnWorld;// 在世界中实际的地图尺寸 单位米
-    private float chunkSizeOnWorld;  // 在世界中实际的地图块尺寸 单位米
-    private List<MapChunkController> lastVisibleChunkList = new List<MapChunkController>();
+    public float updateChunkTime = 1f;//Interval to refresh map chunks in seconds
+    private bool canUpdateChunk = true;//Flag to control refresh frequency combined with updateChunkTime
+    private float mapSizeOnWorld;//Actual map size in world (meters)
+    private float chunkSizeOnWorld;  //Actual chunk size in world (meters)
+    private List<MapChunkController> lastVisibleChunkList = new List<MapChunkController>();//List of visible chunks in the last frame
 
-    //存档信息
-    private bool shouldRestorePosition = false;
-    private Vector3 savedPlayerPos;
+    //Save data information
+    private bool shouldRestorePosition = false;//Whether to restore player position (set during loading, used after map initialization)
+    private Vector3 savedPlayerPos;//Player position read from save file, used after map initialization
 
-    public static MapManager Instance { get; private set; }
+    public static MapManager Instance { get; private set; }//Singleton for easy access from other scripts
+    //Calculate actual map size in the world in meters
     public float MapSizeOnWorld { get { return mapSize * mapChunkSize * cellSize; } }
 
     private void Awake()
     {
         Instance = this;
-        LoadGameData();// 先读存档（修改变量）
-        
+        LoadGameData();//Read save data first (modify variables)
+
     }
 
     void Start()
     {
-        StartCoroutine(RestorePlayerPositionDelayed());// 等地图初始化完了再恢复玩家坐标
-        GenerateAirWalls(); // 生成边界空气墙
+        StartCoroutine(RestorePlayerPositionDelayed());//Restore player coordinates after map initialization
+        GenerateAirWalls(); //Generate boundary air walls
 
-        // 此时所有物体的 Awake 都跑完了，Player_Controller 绝对存在了！
+        //At this point, Awake of all objects has finished, and Player_Controller exists
         if (shouldRestorePosition && Player_Controller.Instance != null)
         {
-            // 防 CharacterController 冲突的经典写法
+            //Prevent CharacterController conflicts
             CharacterController cc = Player_Controller.Instance.GetComponent<CharacterController>();
-            if (cc != null) cc.enabled = false;
+            if (cc != null) cc.enabled = false;//Disable character controller to avoid interference from the physics system during positioning
 
-            // 放心大胆地传送！
+            //Teleport!
             Player_Controller.Instance.playerTransform.position = savedPlayerPos;
 
+            //Re-enable character controller after restoration
             if (cc != null) cc.enabled = true;
-            Debug.Log("✅ 成功在 Start 中恢复玩家坐标：" + savedPlayerPos);
+            Debug.Log("✅ Successfully restored player coordinates in Start：" + savedPlayerPos);
         }
-        // 初始化地图生成器
+        //Initialize map generator
         mapGenerator = new MapGenerator(mapSize, mapChunkSize, cellSize, noiseLacunarity, mapSeed, spawnSeed, marshLimit, mapMaterial, forestTexutre, marshTextures, mapConfig);
-        // 先读存档（修改变量）
-        //LoadGameData();
-        mapGenerator.GenerateMapData();
-        mapChunkDic = new Dictionary<Vector2Int, MapChunkController>();
-        chunkSizeOnWorld = mapChunkSize * cellSize;
+
+        mapGenerator.GenerateMapData();//Generate map data
+        mapChunkDic = new Dictionary<Vector2Int, MapChunkController>();//Initialize map chunk dictionary
+        chunkSizeOnWorld = mapChunkSize * cellSize;//Calculate actual chunk size in the world
     }
 
-    // Update is called once per frame
+    //Update is called once per frame
     void Update()
     {
-        UpdateVisibleChunk();
+        UpdateVisibleChunk();//Refresh visible map chunks
     }
 
-    // 根据观察者的位置来刷新那些地图块可以看到
+    //Refresh which map chunks are visible based on the viewer's position
     private void UpdateVisibleChunk()
     {
-        // 如果观察者没有移动过，不需要刷新
+        //No refresh needed if viewer hasn't moved
         if (viewer.position == lastViewerPos) return;
-        // 如果时间没到 不允许更新
+        //Do not update if the cooldown time hasn't elapsed
         if (canUpdateChunk == false) return;
 
-        // 当前观察者所在的地图快，
+        //Get the index of the chunk the viewer is currently in
         Vector2Int currChunkIndex = GetMapChunkIndexByWorldPosition(viewer.position);
 
-        // 关闭全部不需要显示的地图块
+        //Deactivate all chunks that no longer need to be displayed
         for (int i = lastVisibleChunkList.Count - 1; i >= 0; i--)
         {
+            //If the chunk coordinate distance from the viewer exceeds view distance, deactivate it
             Vector2Int chunkIndex = lastVisibleChunkList[i].ChunkIndex;
+            //Comparing chunk coordinates (chunkIndex), not world coordinates! View distance is unit-based on chunks.
             if (Mathf.Abs(chunkIndex.x - currChunkIndex.x) > viewDinstance
                 || Mathf.Abs(chunkIndex.y - currChunkIndex.y) > viewDinstance)
             {
+                //Chunk is out of view range, deactivate it
                 lastVisibleChunkList[i].SetActive(false);
                 lastVisibleChunkList.RemoveAt(i);
             }
@@ -106,25 +110,26 @@ public class MapManager : MonoBehaviour
 
         int startX = currChunkIndex.x - viewDinstance;
         int startY = currChunkIndex.y - viewDinstance;
-        // 开启需要显示的地图块
+        //Activate chunks that need to be displayed
         for (int x = 0; x < 2 * viewDinstance + 1; x++)
         {
             for (int y = 0; y < 2 * viewDinstance + 1; y++)
             {
-                canUpdateChunk = false;
+                canUpdateChunk = false;//Disallow updates until updateChunkTime has passed
                 Invoke("RestCanUpdateChunkFlag", updateChunkTime);
-                Vector2Int chunkIndex = new Vector2Int(startX + x, startY + y);
-                // 之前加载过
+                Vector2Int chunkIndex = new Vector2Int(startX + x, startY + y);//Check if this visible chunk was previously loaded
+
+                //Previously loaded
                 if (mapChunkDic.TryGetValue(chunkIndex, out MapChunkController chunk))
                 {
-                    // 这个地图是不是已经在显示列表
+                    //Check if this chunk is already in the visible list
                     if (lastVisibleChunkList.Contains(chunk) == false)
                     {
                         lastVisibleChunkList.Add(chunk);
                         chunk.SetActive(true);
                     }
                 }
-                // 之前没有加载
+                //Not previously loaded
                 else
                 {
                     chunk = GenerateMapChunk(chunkIndex);
@@ -139,8 +144,10 @@ public class MapManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 根据世界坐标获取地图块的索引
+    /// Get map chunk index based on world position
     /// </summary>
+    ///Divide world coordinates by meters per chunk and use RoundToInt to find the grid row/column.
+    ///Clamp is used to prevent coordinates from exceeding world boundaries.
     private Vector2Int GetMapChunkIndexByWorldPosition(Vector3 worldPostion)
     {
         int x = Mathf.Clamp(Mathf.RoundToInt(worldPostion.x / chunkSizeOnWorld), 1, mapSize);
@@ -149,33 +156,37 @@ public class MapManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 生成地图块
+    /// Generate map chunk
     /// </summary>
     private MapChunkController GenerateMapChunk(Vector2Int index)
     {
-        // 检查坐标的合法性
+        //Check coordinate validity
         if (index.x > mapSize - 1 || index.y > mapSize - 1) return null;
         if (index.x < 0 || index.y < 0) return null;
+        //Generate the map chunk
         MapChunkController chunk = mapGenerator.GenerateMapChunk(index, transform);
+        //Add generated chunk to the dictionary
         mapChunkDic.Add(index, chunk);
         return chunk;
     }
 
 
-    private void RestCanUpdateChunkFlag()
+    private void RestCanUpdateChunkFlag()//Resets canUpdateChunk to true after updateChunkTime seconds to allow refreshing
     {
         canUpdateChunk = true;
     }
 
-    private void LoadGameData()
+    private void LoadGameData()//Reads data from save file and overrides map-related variables
     {
+        //Check if save file exists
         string path = Application.persistentDataPath + "/gamesave.json";
-        if (File.Exists(path))
+        if (File.Exists(path))//Save file exists, proceed with reading
         {
+            //Read save file content and deserialize into SaveData object
             string json = File.ReadAllText(path);
             SaveData data = JsonUtility.FromJson<SaveData>(json);
 
-            // 覆盖地图变量
+            //Override map variables
             this.mapSize = data.mapSize;
             this.mapSeed = data.mapSeed;
             this.spawnSeed = data.spawnSeed;
@@ -184,21 +195,25 @@ public class MapManager : MonoBehaviour
             this.mapChunkSize = data.mapChunkSize;
             this.cellSize = data.cellSize;
 
-            // 【关键修改】：只把位置存进变量里，千万别在这里直接传送！
+            //Only store the position in a variable; do not teleport here!
             if (data.hasSavedPosition)
             {
+                //Set flag to restore player position after map initialization.
+                //Restoration must occur after map generation to avoid being reset or interfered with.
                 shouldRestorePosition = true;
                 savedPlayerPos = new Vector3(data.playerX, data.playerY, data.playerZ);
             }
         }
     }
 
+    //Double-insurance coroutine. Sometimes teleportation in Start fails because the physics engine hasn't reacted.
+    //Waits one frame (yield return null) then teleports again to ensure success.
     private IEnumerator RestorePlayerPositionDelayed()
     {
-        // 等待一帧，确保所有物体的 Awake/Start 都跑完了，地图也初始化了
+        //Wait one frame to ensure Awake/Start of all objects and map initialization are finished
         yield return null;
 
-        // 重新读取一次位置数据（或者从刚才读好的变量里拿）
+        //Re-read position data (or take from the already loaded variable)
         string path = Application.persistentDataPath + "/gamesave.json";
         if (File.Exists(path))
         {
@@ -217,57 +232,59 @@ public class MapManager : MonoBehaviour
         }
     }
 
-    private void GenerateAirWalls()
+    private void GenerateAirWalls()//Generates boundary air walls to prevent player from leaving the map
     {
         float totalSize = mapSize * mapChunkSize * cellSize;
         float halfSize = totalSize / 2f;
 
-        // 1. 地图中心
+        //Map center
         Vector3 actualCenter = new Vector3(halfSize, 0, halfSize);
 
-        // 2. 清理旧墙
+        //Clean up old walls
         GameObject oldFolder = GameObject.Find("AirWalls_Boundary");
         if (oldFolder != null) DestroyImmediate(oldFolder);
         GameObject wallFolder = new GameObject("AirWalls_Boundary");
 
-        float h = 100f; // 墙高
-        float t = 5f;   // 墙厚 (Thickness)
+        float h = 100f; //Wall height
+        float t = 5f;   //Wall thickness
 
-        // 【关键微调】：在 halfSize 的基础上，额外向外偏移“半个墙厚”
-        // 这样墙的表面会精准切在地毯边缘，而不是墙的中心在边缘
+        //Offset outward by "half thickness" based on halfSize
+        //This ensures the wall surface aligns exactly with the floor edge rather than its center
         float pushOut = halfSize + (t / 2f);
 
-        // 3. 生成四堵墙
+        //Generate four walls
         CreateWall(wallFolder.transform, actualCenter + new Vector3(0, 0, pushOut), new Vector3(totalSize + t, h, t), "Wall_North");
         CreateWall(wallFolder.transform, actualCenter + new Vector3(0, 0, -pushOut), new Vector3(totalSize + t, h, t), "Wall_South");
         CreateWall(wallFolder.transform, actualCenter + new Vector3(pushOut, 0, 0), new Vector3(t, h, totalSize + t), "Wall_East");
         CreateWall(wallFolder.transform, actualCenter + new Vector3(-pushOut, 0, 0), new Vector3(t, h, totalSize + t), "Wall_West");
     }
 
+    //Generates a single wall with specified parent, position, size, and name
     private void CreateWall(Transform parent, Vector3 pos, Vector3 size, string name)
     {
         GameObject wall = new GameObject(name);
         wall.transform.SetParent(parent);
 
-        // 设置墙的位置，高度设为 size.y/2 确保它从地面向上延伸
+        //Set position. Height is size.y/2 to ensure it extends upward from the ground.
         wall.transform.position = new Vector3(pos.x, size.y / 2f, pos.z);
 
+        //Add BoxCollider and configure size and trigger properties
         BoxCollider collider = wall.AddComponent<BoxCollider>();
         collider.size = size;
         collider.isTrigger = false;
 
-        // 增加刚体双重保障
+        //Add Rigidbody for extra collision assurance
         Rigidbody rb = wall.AddComponent<Rigidbody>();
         rb.isKinematic = true;
     }
 
     private void OnDrawGizmos()
     {
-        // 在编辑器里画出红框，帮助你肉眼对齐
+        //Draw a red box in the editor for visual alignment assistance
         float totalSize = mapSize * mapChunkSize * cellSize;
         float halfSize = totalSize / 2f;
 
-        // 红框的中心点
+        //Center of the gizmo box
         Vector3 gizmoCenter = new Vector3(halfSize, 25, halfSize);
 
         Gizmos.color = Color.red;

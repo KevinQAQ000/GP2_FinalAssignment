@@ -1,15 +1,15 @@
 using UnityEngine;
-using System.Collections; // 别忘了引入协程需要的命名空间
+using System.Collections; // Required for Coroutines
 
 /// <summary>
-/// 挂在需要显示在小地图上的物品预制体上
+/// Attached to prefabs that need to be displayed on the minimap
 /// </summary>
 public class MinimapElement : MonoBehaviour
 {
-    [Tooltip("0代表树，1代表石头，2代表草")]
-    public int objectType = 0;
+    [Tooltip("0 for Tree, 1 for Stone, 2 for Grass")]
+    public int objectType = 0; //Object type, determines which icon is shown on the minimap
 
-    // 当物品从对象池被拿出来，并 SetActive(true) 时触发
+    //Triggered when the object is retrieved from the object pool and SetActive(true) is called
     private void OnEnable()
     {
         StartCoroutine(DelayRegister());
@@ -17,21 +17,23 @@ public class MinimapElement : MonoBehaviour
 
     private IEnumerator DelayRegister()
     {
-        // 挂起当前代码，直到这完整的一帧结束
-        yield return null;
+        //Suspend execution until the end of the current frame
+        yield return null; //Ensures MinimapManager has finished its Awake() registration to avoid null reference errors
 
-        if (MinimapManager.Instance != null)
+        if (MinimapManager.Instance != null) //Null check to prevent crashes if MinimapManager is not set up correctly
         {
+            //Register with the MinimapManager to display this object on the minimap
             MinimapManager.Instance.RegisterObject(transform, objectType);
         }
     }
 
-    // 当玩家走远，物品被放回对象池 SetActive(false) 时触发
+    //Triggered when the player moves away and the object is returned to the pool via SetActive(false)
     private void OnDisable()
     {
-        // 卸载是不需要延迟的，隐藏了就立刻从小地图删掉
-        if (MinimapManager.Instance != null)
+        //Unregistering doesn't require a delay; remove from minimap immediately when hidden
+        if (MinimapManager.Instance != null) //Null check for safety
         {
+            //Unregister from the MinimapManager to remove it from the minimap
             MinimapManager.Instance.UnregisterObject(transform);
         }
     }

@@ -1,23 +1,24 @@
 ﻿using UnityEngine;
 using UnityEngine.SceneManagement;
-using System.IO; //用来读写文件
+using System.IO; //Required for file read/write
 
 public class GameManager : MonoBehaviour
 {
-    [Header("暂停菜单面板")]
-    public GameObject pauseMenuPanel;
-    private bool isPaused = false;
+    [Header("Pause Menu Panel")]
+    public GameObject pauseMenuPanel;//Remember to drag this reference in the Inspector!
+    private bool isPaused = false;//Used to track whether the game is currently paused
 
     void Update()
     {
-        // 监听 ESC 键
+        //Listen for the ESC key
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            if (isPaused) ResumeGame();
-            else PauseGame();
+            if (isPaused) ResumeGame();//Resume game if already paused
+            else PauseGame();//Pause game if not yet paused
         }
     }
 
+    //Pause and Resume game
     public void PauseGame()
     {
         isPaused = true;
@@ -32,47 +33,47 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1f;
     }
 
-    // ================== 保存游戏 ==================
+    //Save Game
     public void SaveGame()
     {
         string path = Application.persistentDataPath + "/gamesave.json";
         SaveData data = new SaveData();
 
-        // 1. 先把本地硬盘里的老存档读出来（为了保留咱们之前设置的那些地图种子、尺寸信息）
+        //Read existing save from local disk first (to preserve previously set map seeds and size info)
         if (File.Exists(path))
         {
             string json = File.ReadAllText(path);
             data = JsonUtility.FromJson<SaveData>(json);
         }
 
-        // 2. 抓取玩家当前的精确坐标
+        //Capture player's current precise coordinates
         if (Player_Controller.Instance != null)
         {
             Vector3 pos = Player_Controller.Instance.playerTransform.position;
             data.playerX = pos.x;
             data.playerY = pos.y;
             data.playerZ = pos.z;
-            data.hasSavedPosition = true; // 标记为：已经保存过坐标了！
+            data.hasSavedPosition = true; //Coordinates have been saved!
         }
 
-        // 3. 重新打包成 Json 并覆盖写入硬盘
+        //Repackage as Json and overwrite back to disk
         string newJson = JsonUtility.ToJson(data);
         File.WriteAllText(path, newJson);
 
-        Debug.Log("✅ 游戏进度已保存！玩家位置：" + data.playerX + ", " + data.playerZ);
+        Debug.Log("✅ Game progress saved! Player location：" + data.playerX + ", " + data.playerZ);
     }
     // ================================================================
 
-    public void OnClickReturnMenu()
+    public void OnClickReturnMenu()//This function should be bound to the "Return to Main Menu" button in the pause menu
     {
-        // 【最佳实践】：玩家点击返回主菜单时，自动帮他保存一下！
+        //Automatically save when the player clicks to return to the main menu!
         SaveGame();
 
         Time.timeScale = 1f;
         SceneManager.LoadScene(0);
     }
 
-    public void OnClickQuit()
+    public void OnClickQuit()//This function should be bound to the "Quit Game" button in the pause menu
     {
         Application.Quit();
     }

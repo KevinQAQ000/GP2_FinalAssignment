@@ -5,36 +5,37 @@ using static MapGrid;
 using System.IO;
 
 /// <summary>
-/// 地图生成工具
+/// Map generation tool
 /// </summary>
-public class MapGenerator: MonoBehaviour
+public class MapGenerator : MonoBehaviour
 {
-    //有几个地图块
-    //一个地图有多少个格子
-    //一个格子有多大
-    //一个格子的贴图有多少像素
-    //整个世界是方的
-    private int mapSize;        // 一行或者一列有多少个地图块
-    private int mapChunkSize;   // 一个地图块有多少个格子
-    private float cellSize; // 一个格子多少米
+    //Number of map chunks
+    //Number of grid cells in one map chunk
+    //Size of a single cell in meters
+    //Pixels per cell texture
+    //The entire world is square
+    private int mapSize;        //Number of map chunks in a row or column
+    private int mapChunkSize;   //Number of grid cells per map chunk
+    private float cellSize; //Size of each cell in meters
 
-    private float noiseLacunarity;// 声明噪声频率参数（控制地形起伏的密集程度）
-    private int mapSeed;// 地图种子
-    private int spawnSeed;// 地图物品种子
-    private int mapHeight; // Map height
-    private int mapWidth; // Map width
-    private float marshLimit;// 沼泽界限值（比如大于 0.5 是沼泽，小于 0.5 是森林）
-    private MapGrid mapGrid; // 地图逻辑网格和顶点数据结构
-    private Material mapMaterial;
-    private Material marshMaterial;
-    private Mesh chunkMesh;
+    private float noiseLacunarity;//Noise frequency parameter (controls terrain density)
+    private int mapSeed;//Map seed
+    private int spawnSeed;//Object spawning seed
+    private int mapHeight; //Map height
+    private int mapWidth; //Map width
+    private float marshLimit;//Marsh threshold (e.g., >0.5 is marsh, <0.5 is forest)
+    private MapGrid mapGrid; //Map logical grid and vertex data structure
+    private Material mapMaterial;//Default map material (forest)
+    private Material marshMaterial;//Marsh material (dynamically generated texture)
+    private Mesh chunkMesh;//Mesh data for map chunks
 
-    private Texture2D forestTexutre;
-    private Texture2D[] marshTextures;
-    private MapConfig mapConfig;// 场景物品生成配置文件
-    //需要一个列表来记录我们生成的场景物品，方便日后管理或清除
-    private List<GameObject> mapObjects = new List<GameObject>();
+    private Texture2D forestTexutre;//Forest texture
+    private Texture2D[] marshTextures;//Array of marsh transition textures (selected based on transition type)
+    private MapConfig mapConfig;//Configuration file for scene object spawning
+    //Need a list to record spawned scene objects for future management or clearing
+    private List<GameObject> mapObjects = new List<GameObject>();//Stores instances of scene objects (trees, stones, etc.), not the chunks themselves
 
+    //Constructor with parameters
     public MapGenerator(int mapSize, int mapChunkSize, float cellSize, float noiseLacunarity, int mapSeed, int spawnSeed, float marshLimit, Material mapMaterial, Texture2D forestTexutre, Texture2D[] marshTextures, MapConfig mapConfig)
     {
         this.mapSize = mapSize;
@@ -51,94 +52,94 @@ public class MapGenerator: MonoBehaviour
     }
 
     /// <summary>
-    /// 生成地图数据，主要是所有地图块都通用的数据
+    /// Generates map data, primarily data shared across all map chunks
     /// </summary>
-    [ContextMenu("Generate Map")] // This attribute allows you to call the GenerateMap method from the Unity Editor's context menu.
+    [ContextMenu("Generate Map")] //This attribute allows you to call the GenerateMap method from the Unity Editor's context menu.
     public void GenerateMapData()
     {
-        // 生成噪声图 高度/地貌分布图
-        //把参数传给噪声生成器，得到一张填满 0~1 之间小数的二维表格（类似于地形高低起伏图）
+        //Generate noise map for height/terrain distribution
+        //Pass parameters to the noise generator to get a 2D array of decimals between 0~1 (similar to a topographic map)
         //float[,] noiseMap = GenerateNoiseMap(mapWidth, mapHeight, noiseLacunarity, mapseed);
-        // 应用地图种子
+        //Apply map seed
         Random.InitState(mapSeed);
         float[,] noiseMap = GenerateNoiseMap(mapSize * mapChunkSize, mapSize * mapChunkSize, noiseLacunarity);
 
-        // 生成网格数据
-        // 面板填好的长、宽、大小传进去，新建一个 MapGrid 实例。
-        // 这时会执行 MapGrid 的构造函数，生成那些小球（顶点）和方块（格子）
+        //Generate grid data
+        //Pass the width, height, and size into a new MapGrid instance.
+        //This executes the MapGrid constructor, generating vertices and cells.
         //mapGrid = new MapGrid(mapHeight, mapWidth, cellSize);
         mapGrid = new MapGrid(mapSize * mapChunkSize, mapSize * mapChunkSize, cellSize);
 
-        //确认顶点的类型、以及计算顶点周围网格的贴图的索引数字得到
-        //把生成的噪声图和 limit 界限值交给 grid，算出每个格子到底该用哪个过渡贴图
-        //比如：左边是沼泽右边是森林，它就会算出特定的序号
+        //Confirm vertex types and calculate texture index numbers for surrounding grids
+        //Pass noise map and limit to grid to determine which transition texture each cell uses
+        //E.g., if left is marsh and right is forest, it calculates a specific index
         //int[,] cellTextureIndexMap = mapGrid.CalculateCellTextureIndex(noiseMap, marshLimit);
         mapGrid.CalculateMapVertexType(noiseMap, marshLimit);
-        // 初始化默认材质的尺寸
+        //Initialize default material scale
         mapMaterial.mainTexture = forestTexutre;
         mapMaterial.SetTextureScale("_MainTex", new Vector2(cellSize * mapChunkSize, cellSize * mapChunkSize));
-        // 实例化一个沼泽材质
+        //Instantiate a marsh material
         marshMaterial = new Material(mapMaterial);
         marshMaterial.SetTextureScale("_MainTex", Vector2.one);
         chunkMesh = GenerateMapMesh(mapChunkSize, mapChunkSize, cellSize);
-        // 使用种子来进行随机生成
+        //Use spawn seed for randomized generation
         Random.InitState(spawnSeed);
 
-        // Mesh mesh = new Mesh();
-        // mesh.vertices = new Vector3[]
-        // { 
-        //     new Vector3(0,0,0),
-        //     new Vector3(0,1,0),
-        //     new Vector3(1,1,0),
-        //     new Vector3(1,0,0)
-        // };
+        //Mesh mesh = new Mesh();
+        //mesh.vertices = new Vector3[]
+        //{ 
+        //    new Vector3(0,0,0),
+        //    new Vector3(0,1,0),
+        //    new Vector3(1,1,0),
+        //    new Vector3(1,0,0)
+        //};
 
-        // mesh.triangles = new int[]
-        // {
-        //     0,1,2,
-        //     0,2,3
-        // };
-        // meshFilter.mesh = mesh; // Assign the generated mesh to the MeshFilter component.
+        //mesh.triangles = new int[]
+        //{
+        //    0,1,2,
+        //    0,2,3
+        //};
+        //meshFilter.mesh = mesh; //Assign the generated mesh to the MeshFilter component.
     }
 
     /// <summary>
-    /// 生成地图块
+    /// Generates a map chunk
     /// </summary>
     public MapChunkController GenerateMapChunk(Vector2Int chunkIndex, Transform parent)
     {
-        // 生成地图块物品
+        //Generate map chunk object
         GameObject mapChunkObj = new GameObject("Chunk_" + chunkIndex.ToString());
         //mapChunkObj.transform.SetParent(parent);
         MapChunkController mapChunk = mapChunkObj.AddComponent<MapChunkController>();
         mapChunkObj.AddComponent<MeshFilter>().mesh = chunkMesh;
-        // 添加碰撞体
+        //Add collider
         mapChunkObj.AddComponent<MeshCollider>();
 
         //mapChunkObj.AddComponent<MapChunkController>();
-        // Generate a map mesh
-        //调用下面的GenerateMapMesh私有方法创建一个 Mesh 对象，并交给 meshFilter 显示出来
+        //Generate a map mesh
+        //Call the private GenerateMapMesh method below to create a Mesh object and display it via meshFilter
         //mapChunkObj.AddComponent<MeshFilter>().mesh = GenerateMapMesh(mapHeight, mapWidth);
 
-        //确定坐标
-        Vector3 position = new Vector3(chunkIndex.x * mapChunkSize * cellSize, 0, chunkIndex.y * mapChunkSize * cellSize); // 注意这里应该是 y
+        //Determine coordinates
+        Vector3 position = new Vector3(chunkIndex.x * mapChunkSize * cellSize, 0, chunkIndex.y * mapChunkSize * cellSize); //Note: this should be y/z coordinate
         mapChunk.transform.position = position;
         mapChunkObj.transform.SetParent(parent);
 
-        //生成地图块贴图
-        //TO DO 优化
-        // 生成地图块的贴图
+        //Generate map chunk texture
+        //TODO Optimization
+        //Generate texture for the map chunk
         Texture2D mapTexture;
         MonoManager.Instance.StartCoroutine
         (
             GenerateMapTexture(chunkIndex, (tex, isAllForest) => {
 
-                float worldSize = mapChunkSize * cellSize; // 当前区块在世界里的米数
+                float worldSize = mapChunkSize * cellSize; //Meters of the current chunk in the world
 
                 if (isAllForest)
                 {
                     mapChunkObj.AddComponent<MeshRenderer>().sharedMaterial = mapMaterial;
 
-                    // 通知小地图：生成一个纯森林的地块（传入 null，它会使用默认贴图）
+                    //Notify minimap: generate a pure forest chunk (pass null to use default texture)
                     if (MinimapManager.Instance != null)
                         MinimapManager.Instance.RegisterChunk(position, null, worldSize);
                 }
@@ -149,7 +150,7 @@ public class MapGenerator: MonoBehaviour
                     material.mainTexture = tex;
                     mapChunkObj.AddComponent<MeshRenderer>().material = material;
 
-                    // 通知小地图：生成一个带有具体地形（沼泽等）的地块贴图
+                    //Notify minimap: generate a chunk texture with specific terrain (marsh, etc.)
                     if (MinimapManager.Instance != null)
                         MinimapManager.Instance.RegisterChunk(position, tex, worldSize);
                 }
@@ -158,7 +159,7 @@ public class MapGenerator: MonoBehaviour
         //MonoManager.Instance.StartCoroutine
         //(
         //    GenerateMapTexture(chunkIndex, (tex, isAllForest) => {
-        //        // 如果完全是森林，没必要在实例化一个材质球
+        //        //If entirely forest, no need to instantiate a new material
         //        if (isAllForest)
         //        {
         //            mapChunkObj.AddComponent<MeshRenderer>().sharedMaterial = mapMaterial;
@@ -174,20 +175,20 @@ public class MapGenerator: MonoBehaviour
         //    }));
         //meshRenderer.sharedMaterial.mainTexture = mapTexture;
 
-        // 生成场景物体数据
+        //Generate scene object data
         List<MapChunkMapObjectModel> mapObjectModelList = SpawnMapObject(chunkIndex);
         mapChunk.Init(chunkIndex, position + new Vector3((mapChunkSize * cellSize) / 2, 0, (mapChunkSize * cellSize) / 2), mapObjectModelList);
 
-        // 【新增】：通知 AI 管理器，这块地铺好了，问它要不要刷鹿群
+        //[NEW]: Notify AI Manager that this terrain is ready, asking if it should spawn deer herds
         if (AIManager.Instance != null)
         {
-            float worldSize = mapChunkSize * cellSize; // 计算这块地有多宽
+            float worldSize = mapChunkSize * cellSize; //Calculate terrain width
 
-            // 传入这块地的坐标、尺寸，以及把它挂在这个 Chunk 物体下
+            //Pass terrain coordinates and size, and parent it under this Chunk object
             AIManager.Instance.TrySpawnHerdOnChunk(position, worldSize, mapChunkObj.transform);
         }
 
-        //生成场景物体
+        //Generate scene objects
         //SpawnMapObject(mapGrid, mapConfig, spawnSeed);
         return mapChunk;
     }
@@ -196,9 +197,9 @@ public class MapGenerator: MonoBehaviour
     //[ContextMenu("TestVertex")]
     //public void TestVertex()
     //{
-    //    // This method is used to test the functionality of obtaining vertex data via world coordinates.
-    //    // It displays a button in the Unity Editor; when clicked, it calls the GetVertexByWorldPosition method,
-    //    // passing in the world coordinates of the testObj, and prints the corresponding vertex position.
+    //    //This method is used to test the functionality of obtaining vertex data via world coordinates.
+    //    //It displays a button in the Unity Editor; when clicked, it calls the GetVertexByWorldPosition method,
+    //    //passing in the world coordinates of the testObj, and prints the corresponding vertex position.
     //    print(mapGrid.GetVertexByWorldPosition(testObj.transform.position).Position);
     //}
     //[ContextMenu("TestCell")]
@@ -214,9 +215,9 @@ public class MapGenerator: MonoBehaviour
     private Mesh GenerateMapMesh(int height, int width, float cellSize)
     {
         Mesh mesh = new Mesh();
-        // Determine where the vertex is
-        // This array defines the vertex positions of the mesh. Each Vector3 represents the coordinates of a vertex.
-        // 确定四个角的坐标点。目前写死了一个由 4 个点组成的矩形。
+        //Determine where the vertex is
+        //This array defines the vertex positions of the mesh. Each Vector3 represents the coordinates of a vertex.
+        //Define corner coordinates. Currently hardcoded as a rectangle consisting of 4 points.
         mesh.vertices = new Vector3[]
         {
             new Vector3(0, 0, 0),
@@ -224,52 +225,52 @@ public class MapGenerator: MonoBehaviour
             new Vector3(width * cellSize, 0, height * cellSize),
             new Vector3(width * cellSize, 0, 0),
         };
-        // Determine which points form a triangle
-        // This array defines which vertices form a triangle. Each set of three integers represents the indices of the three vertices of a triangle.
+        //Determine which points form a triangle
+        //This array defines which vertices form a triangle. Each set of three integers represents the indices of the three vertices of a triangle.
         mesh.triangles = new int[]
         {
             0,1,2,
             0,2,3
         };
 
-        // This array defines the UV coordinates of each vertex for texture mapping. Each Vector2 represents the UV coordinates of a vertex.
+        //This array defines the UV coordinates of each vertex for texture mapping. Each Vector2 represents the UV coordinates of a vertex.
         mesh.uv = new Vector2[]
         {
-            new Vector3(0,0), // 原代码此处使用了 Vector3，通常 UV 使用 Vector2
+            new Vector3(0,0), //Note: original code used Vector3; UV typically uses Vector2
             new Vector3(0,1),
             new Vector3(1,1),
             new Vector3(1,0),
         };
 
-        // Calculate normal
+        //Calculate normal
         mesh.RecalculateNormals();
 
         return mesh;
     }
 
     /// <summary>
-    /// 生成噪声图
+    /// Generate noise map
     /// </summary>
     private float[,] GenerateNoiseMap(int width, int height, float lacunarity)
     {
-        // 应用种子
-        //Random.InitState(seed);//这个函数会根据传入的 seed 值来设置随机数生成器的状态。这样，在每次使用相同的 seed 时，生成的随机数序列都会相同，从而确保了噪声图的一致性。
-        lacunarity += 0.1f;//// 稍微增加一点频率，防止外部传 0 导致算出来的噪声全是平的。
-        
-        // 这里的噪声图是为了顶点服务的
+        //Apply seed
+        //Random.InitState(seed);//This function sets the random number generator state based on the seed. Using the same seed ensures consistent noise generation.
+        lacunarity += 0.1f;//Slightly increase frequency to prevent external 0 input from resulting in flat noise.
+
+        //This noise map serves the vertices
         float[,] noiseMap = new float[width - 1, height - 1];
-        //// 在无限大的噪声空间里，随机找一个负一万到正一万的坐标作为“起始截取点”
+        //Find a random "starting intercept point" between -10,000 and 10,000 in infinite noise space
         float offsetX = Random.Range(-10000f, 10000f);
         float offsetY = Random.Range(-10000f, 10000f);
 
-        //// 遍历这块画布的每一个顶点
+        //Traverse every vertex of this canvas
         for (int x = 0; x < width - 1; x++)
         {
             for (int y = 0; y < height - 1; y++)
             {
-                // Mathf.PerlinNoise 返回一个 0~1 的小数。
-                // 把坐标 x,y 乘以lacunarity加上offset，扔进算法里。
-                // 存进刚才那张二维表格里。
+                //Mathf.PerlinNoise returns a decimal between 0~1.
+                //Multiply x,y by lacunarity and add offset, then pass into the algorithm.
+                //Store in the 2D array.
                 noiseMap[x, y] = Mathf.PerlinNoise(x * lacunarity + offsetX, y * lacunarity + offsetY);
             }
         }
@@ -277,18 +278,18 @@ public class MapGenerator: MonoBehaviour
     }
 
     /// <summary>
-    /// 分帧 生成地图贴图
-    /// 如果这个地图块完全是森林，直接返回森林贴图
+    /// Generate map texture across multiple frames
+    /// If this chunk is entirely forest, return forest texture directly
     /// </summary>
     private IEnumerator GenerateMapTexture(Vector2Int chunkIndex, System.Action<Texture2D, bool> callBack)
     {
-        // 当前地块的偏移量 找到这个地图块具体的每一个格子
+        //Current chunk offset to find specific grid cells
         int cellOffsetX = chunkIndex.x * mapChunkSize + 1;
         int cellOffsetY = chunkIndex.y * mapChunkSize + 1;
 
-        // 是不是一张完整的森林地图块
+        //Is it a complete forest chunk
         //bool isAllForest = true;
-        // 无论是不是全森林，我们都统一强制生成贴图，确保画风绝对一致！
+        //Regardless of forest status, we force texture generation to ensure absolute visual consistency!
         bool isAllForest = false;
 
         int textureCellSize = forestTexutre.width;
@@ -333,7 +334,7 @@ public class MapGenerator: MonoBehaviour
         mapTexture.wrapMode = TextureWrapMode.Clamp;
         mapTexture.Apply();
 
-        //// 检查是否只有森林类型的格子
+        ////Check if only forest-type cells exist
         //for (int y = 0; y < mapChunkSize; y++)
         //{
         //    if (isAllForest == false) break;
@@ -348,45 +349,45 @@ public class MapGenerator: MonoBehaviour
         //    }
         //}
 
-        //// 地图宽高
+        ////Map width and height
         //int mapWidth = cellTextureIndexMap.GetLength(0);
         //int mapHeight = cellTextureIndexMap.GetLength(1);
 
 
         //Texture2D mapTexture = null;
         //Texture2D mapTexture = new Texture2D(mapWidth * textureCellSize, mapHeight * textureCellSize, TextureFormat.RGB24, false);
-        // 如果这个地图块完全是森林，直接返回森林贴图
+        //If entirely forest, return forest texture directly
         //if (!isAllForest)
         //{
-        //    // 贴图都是矩形
+        //    //Textures are rectangular
         //    int textureCellSize = forestTexutre.width;
-        //    // 整个地图块的宽高,正方形
+        //    //Width and height of the entire chunk (square)
         //    int textureSize = mapChunkSize * textureCellSize;
         //    mapTexture = new Texture2D(textureSize, textureSize, TextureFormat.RGB24, false);
 
-        //    // 遍历每一个格子
+        //    //Traverse every cell
         //    for (int y = 0; y < mapChunkSize; y++)
         //    {
-        //        // 一帧只执行一列 只绘制一列的像素
+        //        //Execute one column per frame; draw pixels for one column
         //        yield return null;
-        //        // 像素偏移量
+        //        //Pixel offset
         //        int pixelOffsetY = y * textureCellSize;
         //        for (int x = 0; x < mapChunkSize; x++)
         //        {
 
         //            int pixelOffsetX = x * textureCellSize;
         //            int textureIndex = mapGrid.GetCell(x + cellOffsetX, y + cellOffsetY).TextureIndex - 1;
-        //            // 绘制每一个格子内的像素
-        //            // 访问每一个像素点
+        //            //Draw pixels within each cell
+        //            //Access every pixel point
         //            for (int y1 = 0; y1 < textureCellSize; y1++)
         //            {
         //                for (int x1 = 0; x1 < textureCellSize; x1++)
         //                {
 
-        //                    // 设置某个像素点的颜色
-        //                    // 确定是森林还是沼泽
-        //                    // 这个地方是森林 ||
-        //                    // 这个地方是沼泽但是是透明的，这种情况需要绘制groundTexture同位置的像素颜色
+        //                    //Set color for specific pixel point
+        //                    //Determine if forest or marsh
+        //                    //It is forest ||
+        //                    //It is marsh but transparent; in this case draw groundTexture color at the same position
         //                    if (textureIndex < 0)
         //                    {
         //                        Color color = forestTexutre.GetPixel(x1, y1);
@@ -394,7 +395,7 @@ public class MapGenerator: MonoBehaviour
         //                    }
         //                    else
         //                    {
-        //                        // 是沼泽贴图的颜色
+        //                        //Marsh texture color
         //                        Color color = marshTextures[textureIndex].GetPixel(x1, y1);
         //                        if (color.a < 1f)
         //                        {
@@ -418,59 +419,56 @@ public class MapGenerator: MonoBehaviour
     }
 
     /// <summary>
-    /// 生成各种地图对象
-    /// </summary>
-    /// <summary>
-    /// 生成各种地图对象
+    /// Generate various map objects
     /// </summary>
     private List<MapChunkMapObjectModel> SpawnMapObject(Vector2Int chunkIndex)
     {
-        // 使用种子来进行随机生成
+        //Use seed for randomized generation
         Random.InitState(spawnSeed + chunkIndex.x * 1000 + chunkIndex.y);
         List<MapChunkMapObjectModel> mapChunkObjectList = new List<MapChunkMapObjectModel>();
 
         int offsetX = chunkIndex.x * mapChunkSize;
         int offsetY = chunkIndex.y * mapChunkSize;
 
-        // 遍历地图顶点
+        //Traverse map vertices
         for (int x = 1; x < mapChunkSize; x++)
         {
             for (int y = 1; y < mapChunkSize; y++)
             {
                 MapVertex mapVertex = mapGrid.GetVertex(x + offsetX, y + offsetY);
 
-                // 1. 找规则
+                //Find spawning rules
                 TerrainSpawnRule currentRule = mapConfig.spawnRules.Find(rule => rule.terrainType == mapVertex.VertexType);
                 if (currentRule == null) continue;
 
-                // 2. 拿到生成池
+                //Get spawn pool
                 List<MapObjectSpawnConfigModel> configModels = currentRule.spawnModels;
 
-                // 3. 开始算概率
-                int randValue = Random.Range(1, 101); // 实际命中数字是从 1~100 
+                //Calculate probability
+                int randValue = Random.Range(1, 101); //Actual hit range is 1~100 
                 float temp = 0;
 
-                // 【修改重点 1】：默认不选中任何物品，用 null 兜底
+                //Default to no object selected
                 MapObjectSpawnConfigModel spawnModel = null;
 
                 for (int i = 0; i < configModels.Count; i++)
                 {
                     temp += configModels[i].probability;
 
-                    // 【修改重点 2】：用 <= 确保刚好踩中概率边界时也能命中
+                    //Use <= to ensure hit even at exact boundary
                     if (randValue <= temp)
                     {
-                        spawnModel = configModels[i]; // 命中物品
+                        spawnModel = configModels[i]; //Object hit
                         break;
                     }
                 }
 
-                // 【修改重点 3】：双重安全检查
-                // 如果摇出的数字大于所有概率总和，spawnModel 就是 null，什么都不生成（自动留空）
-                // 只有当不仅命中了物品，且该物品不是空(isEmpty == false)，且挂载了模型时，才真正生成！
+                //Double safety check
+                //If randValue exceeds total probability, spawnModel remains null (empty space)
+                //Only generate if object hit, isEmpty is false, and prefab exists!
                 if (spawnModel != null && spawnModel.isEmpty == false && spawnModel.prefab != null)
                 {
-                    // 实例化物品
+                    //Instantiate object
                     Vector3 position = mapVertex.Position + new Vector3(Random.Range(-cellSize / 2, cellSize / 2), 0, Random.Range(-cellSize / 2, cellSize / 2));
                     mapChunkObjectList.Add(new MapChunkMapObjectModel() { Prefab = spawnModel.prefab, Position = position });
                 }
@@ -493,7 +491,7 @@ public class MonoManager : MonoBehaviour
             {
                 GameObject go = new GameObject("MonoManager");
                 instance = go.AddComponent<MonoManager>();
-                DontDestroyOnLoad(go); // 切换场景时不销毁
+                DontDestroyOnLoad(go); //Do not destroy when switching scenes
             }
             return instance;
         }
@@ -502,11 +500,11 @@ public class MonoManager : MonoBehaviour
 
 public static class MonoExtension
 {
-    // 扩展方法必须是 static
-    // 第一个参数必须带有 this 关键字
+    //Extension methods must be static
+    //First parameter must use 'this' keyword
     public static Coroutine StartCoroutine(this object obj, IEnumerator routine)
     {
-        // 借用我们之前写的原生 MonoManager 来开启协程
+        //Borrow the native MonoManager written above to start coroutines
         return MonoManager.Instance.StartCoroutine(routine);
     }
 }

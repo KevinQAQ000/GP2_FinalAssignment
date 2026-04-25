@@ -3,49 +3,49 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-///  Grid, mainly including vertices and cells
+/// Grid, mainly including vertices and cells
 /// </summary>
 public class MapGrid
 {
-    //顶点数据字典 ，key是网格坐标 (x, y)，Value是顶点对象。用于快速查找某个交叉点。
-    //你提供一个坐标（比如第2排第3列 Vector2Int），它就瞬间把那个位置的顶点（MapVertex）或格子（MapCell）的数据交给你。查询速度极快。
-    //Vector2Int: 存储两个整数(x, y) 的结构，适合表示网格坐标
-    //MapVertex: 自定义的类，存储这个点的信息（如位置）
+    //Vertex data dictionary, key is grid coordinates (x, y), value is vertex object. Used for rapid lookup of intersection points.
+    //Provide a coordinate (e.g., Row 2, Column 3 Vector2Int), and it instantly returns the vertex (MapVertex) or cell (MapCell) data. Very fast query speed.
+    //Vector2Int: Structure storing two integers (x, y), suitable for representing grid coordinates.
+    //MapVertex: Custom class storing information of this point (such as position).
     public Dictionary<Vector2Int, MapVertex> vertexDic = new Dictionary<Vector2Int, MapVertex>();
-    //格子数据,Key是网格坐标 (x, y)，Value是格子对象。格子通常位于四个顶点的中心。
+    //Cell data, key is grid coordinates (x, y), value is cell object. Cells are usually located at the center of four vertices.
     public Dictionary<Vector2Int, MapCell> cellDic = new Dictionary<Vector2Int, MapCell>();
 
-    //构造函数，创建一个 MapGrid 实例时会调用这个函数。它负责初始化网格的顶点和格子。
-    //当其他脚本写下 new MapGrid(10, 10, 1.0f) 时，这段代码就会执行。它把传进来的长、宽、格子大小存到自己脑子里。
-    public MapGrid(int mapHeight, int mapWidth, float cellSize)
+    //Constructor, called when creating a MapGrid instance. It initializes the grid's vertices and cells.
+    //When other scripts call "new MapGrid(10, 10, 1.0f)", this code executes, storing the passed height, width, and cell size.
+    public MapGrid(int mapHeight, int mapWidth, float cellSize)//Constructor called when creating a MapGrid instance. It initializes vertices and cells.
     {
-        //将传入的参数赋值给类内部的属性，方便后面其他函数使用
-        MapHeight = mapHeight; // Map height
-        MapWidth = mapWidth;   // Map width
-        CellSize = cellSize;   // Cell size
+        //Assign passed parameters to internal properties for use by other functions
+        MapHeight = mapHeight; //Map height
+        MapWidth = mapWidth;   //Map width
+        CellSize = cellSize;   //Cell size
 
-        //第一层循环：控制宽度方向（X轴）
-        for (int x = 1; x < mapWidth; x++) // Width
+        //First loop: Controls width direction (X-axis)
+        for (int x = 1; x < mapWidth; x++) //Width
         {
-            //第二层循环：控制高度方向（Z轴）
-            for (int z = 1; z < mapHeight; z++) // Height
+            //Second loop: Controls height direction (Z-axis)
+            for (int z = 1; z < mapHeight; z++) //Height
             {
-                //在 (x, z) 坐标点添加一个顶点
+                //Add a vertex at (x, z) coordinates
                 AddVertex(x, z);
-                //在 (x, z) 坐标点添加一个格子
+                //Add a cell at (x, z) coordinates
                 AddCell(x, z);
             }
         }
 
-        //增加一行一列
-        //修补边缘。因为顶点构成了格子的角，4个顶点才能围出1个格子。
-        //如果顶点是 10x10，通过上面的循环只能生成 9x9 的格子。
-        //这两行是为了把最上面一行和最右边一列的格子补齐。
+        //Add an extra row and column
+        //Repair edges. Since vertices form cell corners, 4 vertices enclose 1 cell.
+        //If vertices are 10x10, the loop above only generates 9x9 cells.
+        //These loops supplement the top row and rightmost column of cells.
         for (int x = 1; x <= mapWidth; x++)
         {
             AddCell(x, mapHeight);
         }
-        //补全最右边那一列格子
+        //Complete the rightmost column of cells
         for (int z = 1; z < mapWidth; z++)
         {
             AddCell(mapWidth, z);
@@ -53,12 +53,12 @@ public class MapGrid
 
 
         #region Test code
-        ////为了在 Unity 里生成真实的球体和方块 直观感受到网格的存在
+        ////To generate actual spheres and cubes in Unity to visualize the grid
         //foreach (var item in vertexDic.Values)
         //{
-        //    GameObject temp = GameObject.CreatePrimitive(PrimitiveType.Sphere); // Create a sphere to represent the vertex
-        //    temp.transform.position = item.Position; // Set the sphere's position to the vertex position
-        //    temp.transform.localScale = Vector3.one * 0.25f; // Set the sphere's scale to 0.25x
+        //    GameObject temp = GameObject.CreatePrimitive(PrimitiveType.Sphere); //Create a sphere to represent the vertex
+        //    temp.transform.position = item.Position; //Set the sphere's position to the vertex position
+        //    temp.transform.localScale = Vector3.one * 0.25f; //Set the sphere's scale to 0.25x
         //}
         //foreach (var item in cellDic.Values)
         //{
@@ -70,34 +70,34 @@ public class MapGrid
         #endregion
     }
 
-    //get 允许外部读取这些值
-    //private set 只有我这个类内部能修改它们，别人只能看不能改
+    //get allows external reading of these values
+    //private set ensures only this class can modify them internally
     public int MapHeight { get; private set; }
     public int MapWidth { get; private set; }
     public float CellSize { get; private set; }
 
-    #region 顶点
-    //顶点生成与查询
-    public void AddVertex(int x, int y) // Add vertex 逻辑坐标转化为物理坐标
+    #region Vertices
+    //Vertex generation and query
+    public void AddVertex(int x, int y) //Add vertex, converting grid coordinates to world position
     {
-        //将一个新的顶点添加到 vertexDic 字典中，键是网格坐标 (x, y)，值是一个新的 MapVertex 对象。
+        //Add a new vertex to the vertexDic dictionary, key is grid (x, y), value is a new MapVertex object.
         vertexDic.Add
         (
-            new Vector2Int(x, y), new MapVertex() // Vertex data
+            new Vector2Int(x, y), new MapVertex() //Vertex data
             {
-                //计算世界坐标：
-                //x * CellSize: 网格位置乘以每个格子的宽度。比如第2个点，Size是2，那它就在世界空间的 4 的位置。
-                //0: 地图目前是平的，所以 Y轴（高度）为 0
-                //y * CellSize: 网格的 Y 对应 3D 空间的 Z 轴
+                //Calculate world coordinates:
+                //x * CellSize: Grid position multiplied by cell width. E.g., 2nd point with Size 2 is at world position 4.
+                //0: Map is currently flat, so Y-axis (height) is 0.
+                //y * CellSize: Grid Y corresponds to the 3D Z-axis.
                 Position = new Vector3(x * CellSize, 0, y * CellSize)
             }
         );
     }
 
     /// <summary>
-    /// 获取顶点，如果找不到返回Null
+    /// Get vertex; returns null if not found
     /// </summary>
-    public MapVertex GetVertex(Vector2Int index) // Get vertex via grid coordinates
+    public MapVertex GetVertex(Vector2Int index) //Get vertex via grid coordinates
     {
         MapVertex vertex = null;
         vertexDic.TryGetValue(index, out vertex);
@@ -109,7 +109,7 @@ public class MapGrid
     }
 
     /// <summary>
-    /// 通过世界坐标获取顶点
+    /// Get vertex via world position
     /// </summary>
     public MapVertex GetVertexByWorldPosition(Vector3 position)
     {
@@ -119,18 +119,18 @@ public class MapGrid
     }
 
     /// <summary>
-    /// 设置顶点类型
+    /// Set vertex type
     /// </summary>
     private void SetVertexType(Vector2Int vertexIndex, MapVertexType mapVertexType)
     {
         MapVertex vertex = GetVertex(vertexIndex);
         if (vertex.VertexType != mapVertexType)
         {
-            vertex.VertexType = mapVertexType;// 把顶点的类型改变（比如从森林变成沼泽）
-            // 只有沼泽需要计算
-            if (vertex.VertexType == MapVertexType.Marsh)// 只有变成沼泽才触发
+            vertex.VertexType = mapVertexType;//Change vertex type (e.g., from Forest to Marsh)
+            //Only Marsh requires calculations
+            if (vertex.VertexType == MapVertexType.Marsh)//Only trigger when becoming Marsh
             {
-                // 计算附近的贴图权重
+                //Calculate nearby texture weights
 
                 MapCell tempCell = GetLeftBottomMapCell(vertexIndex);
                 if (tempCell != null) tempCell.TextureIndex += 1;
@@ -148,7 +148,7 @@ public class MapGrid
     }
 
     /// <summary>
-    /// 设置顶点类型
+    /// Set vertex type
     /// </summary>
     private void SetVertexType(int x, int y, MapVertexType mapVertexType)
     {
@@ -159,26 +159,26 @@ public class MapGrid
 
     //**************************************************************************************/
 
-    #region 格子
-    private void AddCell(int x, int y)// 生成格子数据
+    #region Cells
+    private void AddCell(int x, int y)//Generate cell data
     {
-        float offset = CellSize / 2;//Cell的位置是以格子中心为基准的，所以需要一个偏移量
+        float offset = CellSize / 2;//Cell position is based on the center of the grid, so an offset is required
         cellDic.Add
         (
-            // offset: 格子的中心点偏移量。
-            // 顶点在角落（0,0），但格子的模型（Cube）中心点是在正中间的。
-            // 所以格子的坐标要往左下角回退半个身位，才能正好对齐四个顶点。
+            //offset: The center point offset of the cell.
+            //Vertices are at corners (0,0), but the cell model (Cube) center is in the middle.
+            //So the cell coordinate must step back half a size from the bottom-left to align with the four vertices.
             new Vector2Int(x, y), new MapCell()
             {
-                // x * CellSize - offset: 
-                // 比如格子坐标是 (1,1)，Size 是 1。
-                // 它的顶点在 (1,0,1)，它的中心就在 (0.5, 0, 0.5)
-                Position = new Vector3(x * CellSize - offset, 0, y * CellSize - offset)//Cell的位置是以格子中心为基准的，所以需要一个偏移量
+                //x * CellSize - offset: 
+                //E.g., grid coordinate is (1,1), Size is 1.
+                //Its vertex is at (1,0,1), its center is at (0.5, 0, 0.5).
+                Position = new Vector3(x * CellSize - offset, 0, y * CellSize - offset)//Cell position is based on the center, requiring an offset
             }
         );
     }
 
-    public MapCell GetCell(Vector2Int index)// Get cell via grid coordinates
+    public MapCell GetCell(Vector2Int index)//Get cell via grid coordinates
     {
         MapCell cell = null;
         cellDic.TryGetValue(index, out cell);
@@ -191,7 +191,7 @@ public class MapGrid
     }
 
     /// <summary>
-    /// 获取左下角格子
+    /// Get bottom-left cell
     /// </summary>
     public MapCell GetLeftBottomMapCell(Vector2Int vertexIndex)
     {
@@ -199,7 +199,7 @@ public class MapGrid
     }
 
     /// <summary>
-    /// 获取右下角格子
+    /// Get bottom-right cell
     /// </summary>
     public MapCell GetRightBottomMapCell(Vector2Int vertexIndex)
     {
@@ -207,7 +207,7 @@ public class MapGrid
     }
 
     /// <summary>
-    /// 获取左上角格子
+    /// Get top-left cell
     /// </summary>
     public MapCell GetLeftTopMapCell(Vector2Int vertexIndex)
     {
@@ -215,7 +215,7 @@ public class MapGrid
     }
 
     /// <summary>
-    /// 获取右上角格子
+    /// Get top-right cell
     /// </summary>
     public MapCell GetRightTopMapCell(Vector2Int vertexIndex)
     {
@@ -225,7 +225,7 @@ public class MapGrid
     #endregion
 
     /// <summary>
-    /// 计算格子贴图的索引数字
+    /// Calculate cell texture index numbers
     /// </summary>
     public void CalculateMapVertexType(float[,] noiseMap, float limit)
     {
@@ -236,8 +236,8 @@ public class MapGrid
         {
             for (int z = 1; z < height; z++)
             {
-                // 基于噪声中的值确定这个顶点的类型
-                // 大于边界是沼泽，否则是森林
+                //Determine this vertex type based on the noise value
+                //Marsh if greater than limit, otherwise Forest
                 if (noiseMap[x, z] >= limit)
                 {
                     SetVertexType(x, z, MapVertexType.Marsh);
@@ -249,7 +249,7 @@ public class MapGrid
             }
         }
 
-        // 到这里，可以确定所有格子对应的贴图索引
+        //By this point, texture indices for all cells are determined
         //int[,] textureIndexMap = new int[width, height];
         //for (int x = 0; x < width; x++)
         //{
@@ -261,28 +261,28 @@ public class MapGrid
 
         //return textureIndexMap;
     }
-     
+
     //**************************************************************************************
 
     /// <summary>
-    /// 顶点类型
+    /// Vertex types
     /// </summary>
     public enum MapVertexType
     {
-        Forest, //森林
-        Marsh,  //沼泽
+        Forest, //Forest
+        Marsh,  //Marsh
     }
 
     /// <summary>
-    /// Map vertices
+    /// Map vertex data
     /// </summary>
     public class MapVertex
     {
-        public Vector3 Position; // This is the world coordinates
+        public Vector3 Position; //World coordinates
         public MapVertexType VertexType;
     }
     /// <summary>
-    /// 地图格子
+    /// Map cell data
     /// </summary>
     public class MapCell
     {

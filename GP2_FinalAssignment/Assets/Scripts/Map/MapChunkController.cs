@@ -2,26 +2,28 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-// 数据类保持不变...
+//Data classes remain unchanged
 [System.Serializable]
-public class MapChunkMapObjectModel { public GameObject Prefab; public Vector3 Position; }
+//Data classes do not need to inherit from MonoBehaviour as they only store data and don't need to be attached to GameObjects.
+public class MapChunkMapObjectModel { public GameObject Prefab; public Vector3 Position; }//Single tree/object
+//Records all flowers, grass, and trees on this chunk.
 public class MapChunkData { public List<MapChunkMapObjectModel> MapObjectList = new List<MapChunkMapObjectModel>(); }
 
 public class MapChunkController : MonoBehaviour
 {
-    public Vector2Int ChunkIndex { get; private set; }
-    public Vector3 CentrePosition { get; private set; }
+    public Vector2Int ChunkIndex { get; private set; }//Chunk index
+    public Vector3 CentrePosition { get; private set; }//Chunk center position
 
-    private MapChunkData mapChunkData;
-    private List<GameObject> mapObjectList = new List<GameObject>();
-    private bool isActive = false;
+    private MapChunkData mapChunkData;//Chunk data
+    private List<GameObject> mapObjectList = new List<GameObject>();//List of instantiated objects on this chunk
+    private bool isActive = false;//Whether the chunk is active
 
-    // 核心修复：退出保护
+    //Application exit protection
     private static bool isApplicationQuitting = false;
 
-    private void OnApplicationQuit()
+    private void OnApplicationQuit()//Unity triggers this method when the game is closed
     {
-        isApplicationQuitting = true;
+        isApplicationQuitting = true;//Set flag to avoid errors
     }
 
     public void Init(Vector2Int chunkIndex, Vector3 centrePosition, List<MapChunkMapObjectModel> MapObjectList)
@@ -36,7 +38,7 @@ public class MapChunkController : MonoBehaviour
 
     private void OnDestroy()
     {
-        // 如果是退出游戏，直接跳过回收逻辑，防止报错
+        //If the application is quitting, skip recycling logic to prevent errors
         if (isApplicationQuitting) return;
 
         if (isActive)
@@ -47,38 +49,39 @@ public class MapChunkController : MonoBehaviour
 
     private void ClearObjects()
     {
-        // 增加安全检查：确保对象池单例还活着
+        //Safety check: ensure the object pool singleton is still active
         if (mapObjectList == null || PoolManager.Instance == null) return;
 
         for (int i = 0; i < mapObjectList.Count; i++)
         {
             if (mapObjectList[i] != null)
             {
-                PoolManager.Instance.PushGameObject(mapObjectList[i]);
+                PoolManager.Instance.PushGameObject(mapObjectList[i]);//Recycle objects back to the object pool
             }
         }
-        mapObjectList.Clear();
+        mapObjectList.Clear();//Clear the list
     }
 
-    public void SetActive(bool active)
+    //If the received command differs from the current state, show or hide the chunk itself first.
+    public void SetActive(bool active)//Activate chunk
     {
-        if (isActive != active)
+        if (isActive != active)//Only execute switch if the current state differs from the target state
         {
             isActive = active;
-            gameObject.SetActive(isActive);
+            gameObject.SetActive(isActive);//Switch the display state of the chunk
 
-            if (mapChunkData == null) return;
-            List<MapChunkMapObjectModel> dataList = mapChunkData.MapObjectList;
+            if (mapChunkData == null) return;//Return if chunk data is null
+            List<MapChunkMapObjectModel> dataList = mapChunkData.MapObjectList;//Get the object list from chunk data
 
             if (isActive)
             {
                 for (int i = 0; i < dataList.Count; i++)
                 {
-                    GameObject go = PoolManager.Instance.GetGameObject(dataList[i].Prefab, transform);
+                    GameObject go = PoolManager.Instance.GetGameObject(dataList[i].Prefab, transform);//Get object from pool and set its parent to this chunk
                     if (go != null)
                     {
-                        go.transform.position = dataList[i].Position;
-                        mapObjectList.Add(go);
+                        go.transform.position = dataList[i].Position;//Set object position
+                        mapObjectList.Add(go);//Add object to the current chunk's object list
                     }
                 }
             }

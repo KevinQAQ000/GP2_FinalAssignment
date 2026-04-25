@@ -4,23 +4,26 @@ using System.Collections.Generic;
 
 public class MinimapManager : MonoBehaviour
 {
+    //Singleton pattern for easy access by MinimapElement
     public static MinimapManager Instance { get; private set; }
 
-    [Header("UI 引用")]
-    public RectTransform mapContent;
+    [Header("UI References")]
+    public RectTransform mapContent; //Minimap content container; all chunks and icons are placed here
 
-    [Header("参数")]
-    public float scaleRatio = 5f;
+    [Header("Parameters")]
+    public float scaleRatio = 5f; //Conversion ratio from world meters to UI pixels
 
-    [Header("图标预制体 (UI Image)")]
-    public GameObject treeIconPrefab;
+    [Header("Icon Prefabs (UI Image)")] //0-Tree, 1-Rock, 2-Grass
+    public GameObject treeIconPrefab; //Image component, Anchor and Pivot should be set to (0.5, 0.5)
     public GameObject rockIconPrefab;
     public GameObject grassIconPrefab;
 
-    [Header("地貌设置")]
-    [Tooltip("当一个地块是纯森林时显示的贴图")]
-    public Texture2D defaultForestTexture;
+    [Header("Terrain Settings")]
+    [Tooltip("Texture displayed when a chunk is pure forest")]
+    public Texture2D defaultForestTexture; //Default texture for pure forest chunks if MapGenerator doesn't provide one
 
+    //Mapping from world Transform objects to their corresponding minimap icons for easy position updates and removal
+    //Key: World object Transform, Value: Icon GameObject instance
     private Dictionary<Transform, GameObject> iconDict = new Dictionary<Transform, GameObject>();
 
     private void Awake()
@@ -30,68 +33,86 @@ public class MinimapManager : MonoBehaviour
 
     private void LateUpdate()
     {
+        //Update minimap position every frame to keep the player centered
         if (Player_Controller.Instance != null && Player_Controller.Instance.playerTransform != null)
         {
+            //Get player's world position
             Vector3 playerPos = Player_Controller.Instance.playerTransform.position;
-            // 整个容器反向移动，让玩家永远在中心
+            //Move the entire container in reverse to keep the player at the center
             mapContent.anchoredPosition = new Vector2(-playerPos.x * scaleRatio, -playerPos.z * scaleRatio);
         }
     }
 
     /// <summary>
-    /// 当 MapGenerator 生成好贴图后调用，将地貌铺在小地图底部
+    /// Called when MapGenerator completes a texture to lay the terrain at the bottom of the minimap
     /// </summary>
     public void RegisterChunk(Vector3 worldPos, Texture2D tex, float chunkSizeWorld)
     {
+        //Create a new GameObject to display the chunk texture
         GameObject chunkObj = new GameObject("Minimap_Chunk");
+        //Place it under mapContent
         chunkObj.transform.SetParent(mapContent);
 
-        // 关键：强制设为第一个子节点，保证它在所有图标（树、石头）的下面
+        //Force as the first sibling to ensure it stays below all icons (trees, rocks)
         chunkObj.transform.SetAsFirstSibling();
 
-        // 使用 RawImage 显示 Texture2D
+        //Use RawImage to display the Texture2D
         RawImage img = chunkObj.AddComponent<RawImage>();
+        //Use default texture if MapGenerator provides none (e.g., pure forest)
         img.texture = tex != null ? tex : defaultForestTexture;
 
+        //Configure RectTransform
         RectTransform rt = chunkObj.GetComponent<RectTransform>();
-        // 锁定锚点
+        //Lock anchors to center
         rt.anchorMin = Vector2.one * 0.5f;
         rt.anchorMax = Vector2.one * 0.5f;
-        // 贴图是以左下角为生成点的，所以 Pivot 设为 (0,0)
+        //Since textures are generated from the bottom-left, set Pivot to (0,0)
         rt.pivot = Vector2.zero;
 
-        // 计算 UI 大小：世界米数 * 比例
+        //Calculate UI size: world meters * scale ratio
         float uiSize = chunkSizeWorld * scaleRatio;
         rt.sizeDelta = new Vector2(uiSize, uiSize);
 
-        // 设置位置
+        //Set position to accurately snap onto the corresponding UI map coordinates
         rt.anchoredPosition = new Vector2(worldPos.x * scaleRatio, worldPos.z * scaleRatio);
     }
 
+    /// <summary>
+    /// Register an object on the minimap and generate a corresponding icon
+    /// </summary>
+    /// <param name="target">The world object's Transform</param>
+    /// <param name="objectType">Object type: 0-Tree, 1-Rock, 2-Grass</param>
     public void RegisterObject(Transform target, int objectType)
     {
-        GameObject prefab = null;
+        GameObject prefab = null; //Select prefab based on object type
         if (objectType == 0) prefab = treeIconPrefab;
         else if (objectType == 1) prefab = rockIconPrefab;
         else if (objectType == 2) prefab = grassIconPrefab;
 
-        if (prefab != null)
+        if (prefab != null) //If the prefab exists, generate the icon
         {
+            //Instantiate icon under mapContent
             GameObject iconObj = Instantiate(prefab, mapContent);
             RectTransform rt = iconObj.GetComponent<RectTransform>();
 
-            // 强行修正锚点防止偏移
+            //Force anchors/pivot to center to prevent position offset caused by icon size
             rt.anchorMin = Vector2.one * 0.5f;
             rt.anchorMax = Vector2.one * 0.5f;
             rt.pivot = Vector2.one * 0.5f;
 
+            //Convert world coordinates to UI coordinates using the scale ratio
+            //Place the icon dot based on the real object's world position
             rt.anchoredPosition = new Vector2(target.position.x * scaleRatio, target.position.z * scaleRatio);
             iconDict.Add(target, iconObj);
         }
     }
 
+    /// <summary>
+    /// Unregister an object from the minimap and destroy its icon
+    /// </summary>
     public void UnregisterObject(Transform target)
     {
+        //If the object exists in the dictionary, destroy its corresponding icon
         if (iconDict.TryGetValue(target, out GameObject obj))
         {
             Destroy(obj);
